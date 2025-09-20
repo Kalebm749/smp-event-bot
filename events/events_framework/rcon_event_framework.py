@@ -10,24 +10,58 @@ rcon_host = "10.0.0.70"
 rcon_port = 25575
 rcon_pass = "1234"
 
+
 def load_json(event_file):
     with open(event_file, "r") as f:
         event_data = json.load(f)
 
     return event_data
 
+
 def escape_mc_string(text):
     return text.replace("\\", "\\\\").replace('"', '\\"')
 
+
+def write_to_log_file(result):
+    log_file_path = '../framework_logs/event_logs.txt'
+
+    with open (log_file_path, "a") as f:
+        f.write(f"{result}\n")
+
+
+def mcrcon_wrapper(cmds):
+
+    #If cmds is a single string convert it to a list
+    if isinstance(cmds, str):
+        cmds = [cmds]
+
+    cmd_results = []
+
+    try:
+        with MCRcon(rcon_host, rcon_pass, port=rcon_port) as mcr:
+            for cmd in cmds:
+                result = mcr.command(cmd)
+                cmd_results.append(result)
+        return cmd_results
+    except:
+        for cmd in cmds:
+            write_to_log_file(f"MCRCON error with command {cmd}")
+
+
 def get_players():
-    with MCRcon(rcon_host, rcon_pass, port=rcon_port) as mcr:
-        player_list = mcr.command("scoreboard players list")
-        match = re.search(r"There are \d+ tracked entity/entities: (.+)", player_list)
-        if match:
-            return match.group(1).split(", ")
-        return []
+    
+    player_list_cmd = "scoreboard players list"
 
+    results = mcrcon_wrapper(player_list_cmd)
+    write_to_log_file(f"Found the following players {results}")
 
+    match = re.search(r"There are \d+ tracked entity/entities: (.+)", results[0])
+    if match:
+        return match.group(1).split(", ")
+    else:
+        write_to_log_file(f"Could not find any tracked players in cmds '{player_list_cmd}'")
+
+    
 def start_event(event_data):
 
     # Grab the event start text and format it
@@ -40,26 +74,37 @@ def start_event(event_data):
     json_desc_text = {"text": event_description_text, "color": "aqua"}
     display_description_text = f"tellraw @a {json.dumps(json_desc_text)}"
 
-    #Grab the setup commands
-    event_setup_commands = event_data["commands"]["setup"]
+    # Display the event start text on the server
+    result_start_text = mcrcon_wrapper(display_title_text)
+    write_to_log_file(f"Attempted to start the event. Got response {result_start_text}")
 
-    with MCRcon(rcon_host, rcon_pass, port=rcon_port) as mcr:
-        result = mcr.command(display_title_text)
-        print(f"Command Return = {result} : Sent String {display_title_text}")
+    # Play the event start bells 9 times when the event starts
+    bells_command = 'execute as @a at @s run playsound minecraft:block.bell.use master @s ~ ~ ~ 100'
+    for i in range(9):
+        bell_sound_result = mcrcon_wrapper(bells_command)
+        write_to_log_file(f"Played event start bell sound. Got response {bell_sound_result}")
+        time.sleep(0.25)
 
-        for i in range(9):
-            result = mcr.command('execute as @a at @s run playsound minecraft:block.bell.use master @s ~ ~ ~ 100')
-            time.sleep(0.25)
+    # Display the event description text on the server
+    result_description_text = mcrcon_wrapper(display_description_text)
+    write_to_log_file(f"Attempted to display the event description. Got response {result_description_text}")
 
-        result = mcr.command(display_description_text)
-        print(f"Command Return = {result} : Sent String {display_description_text}")
+    # Play the wither.death event start sound
+    wither_sounds_command = 'execute as @a at @s run playsound minecraft:entity.wither.death master @s ~ ~ ~ 100'
+    wither_sound_result = mcrcon_wrapper(wither_sounds_command)
+    write_to_log_file(f"Played event start wither sound. Got response {wither_sound_result}")
 
-        result = mcr.command('execute as @a at @s run playsound minecraft:entity.wither.death master @s ~ ~ ~ 100')
-
+    # Run the start-up commands
+    try:
+        event_setup_commands = event_data["commands"]["setup"]
         for cmd in event_setup_commands:
-            result = mcr.command(cmd)
-            print(f"Command Return = {result} : Sent String {cmd}")
+            cmd_result = mcrcon_wrapper(cmd)
+            write_to_log_file(f"Sent setup cmd: {cmd}")
+            write_to_log_file(f"Got result: {cmd_result}")
+    except:
+        write_to_log_file(f"Failed to execute the event setup commands. Check event JSON formatting.")
 
+    write_to_log_file("✅ Event Setup Completed")
     print("✅ Event Setup Completed")
 
 
@@ -67,79 +112,100 @@ def start_event(event_data):
 def aggregate_scores(event_data):
     #Grab a list of all the players
     player_list = get_players()
+    write_to_log_file(f"Found the following tracked players for aggregate_scores {player_list}")
 
     #Grabs the aggregate objective
-    agg_obj = event_data["aggregate_objective"]
+    try:
+        agg_obj = event_data["aggregate_objective"]
+    except:
+        write_to_log_file("Failed to pull the aggregate objective. Check event JSON format")
 
     #Grab the objectives to aggregate on
-    objectives = event_data["commands"]["aggregate"]
-    #print(objectives)
+    try:
+        objectives = event_data["commands"]["aggregate"]
+    except:
+        write_to_log_file("Failed to pull the list of objectives to aggregate. Check event JSON format")
 
-    with MCRcon(rcon_host, rcon_pass, port=rcon_port) as mcr:
-        for player in player_list:
-            result = mcr.command(f"scoreboard players set {player} {agg_obj} 0")
-            #print(result)
-            for objective in objectives:
-                result = mcr.command(f"scoreboard players operation {player} {agg_obj} += {player} {objective}")
-                #print(result)
+    for player in player_list:
+        # Set aggregate scoreboard objective to zero
+        aggregate_to_zero = f"scoreboard players set {player} {agg_obj} 0"
+        result_to_zero = mcrcon_wrapper(aggregate_to_zero)
+        write_to_log_file(f"Got the following result setting {agg_obj} to 0 for {player}: {result_to_zero}")
+
+        for objective in objectives:
+            aggregate_scores_additive_cmd = f"scoreboard players operation {player} {agg_obj} += {player} {objective}"
+            additive_result = mcrcon_wrapper(aggregate_scores_additive_cmd)
+            write_to_log_file(f"Got the following result aggregating {agg_obj} with {objective} for {player}: {additive_result}")
 
     print("✅ Calculated Aggregate Scores")
+    write_to_log_file(f"✅ Calculated Aggregate Scores")
+
 
 #Looks through the scoreboard objectives to find the leaders
 def find_leaders(event_data, silent=False):
     player_list = get_players()
 
-    main_obj = event_data["aggregate_objective"]
+    try:
+        main_obj = event_data["aggregate_objective"]
+    except:
+        write_to_log_file("Failed to pull the aggregate objective. Check event JSON format")
 
     leaders = []
     leading_score = 0
 
-    with MCRcon(rcon_host, rcon_pass, port=rcon_port) as mcr:
-        for player in player_list:
-            result = mcr.command(f"scoreboard players get {player} {main_obj}")
-            #print(result)
-            match = re.search(r"has (\d+)", result)
-            if match:
-                number = int(match.group(1))
-                #print(number)
-                if not leaders:
-                    leaders.append(player)
-                elif number == leading_score:
-                    leaders.append(player)
-                elif number > leading_score:
-                    leaders = []
-                    leaders.append(player)
-                    leading_score = number
-            else:
-                print(f"Error getting score for {player}")
+    for player in player_list:
+        get_player_aggregate_score_cmd = f"scoreboard players get {player} {main_obj}"
+        aggregate_score_result = mcrcon_wrapper(get_player_aggregate_score_cmd)
+        write_to_log_file(f"Checked score for {player} got {aggregate_score_result}")
 
-        #print(leaders)
-
-        #Tell the server whos winning
-        player_string = ""
-        for leads in leaders:
-            player_string += f"{leads}, "
-            if len(leaders) == 1:
-                player_string = leads
-
-        if player_string.endswith(", "):
-            player_string = player_string[:-2]
-
-        if len(leaders) == 1:
-            player_string += f" is leading the pack for the {event_data["name"]} event with a score of {leading_score} {event_data["score_text"]}!"
+        #Search the aggregate score result for the numerical value
+        match = re.search(r"has (\d+)", aggregate_score_result[0])
+        if match:
+            number = int(match.group(1))
+            print(f"LEADING SCORE {number}")
+            if not leaders:
+                leaders.append(player)
+                leading_score = number
+            elif number == leading_score:
+                leaders.append(player)
+            elif number > leading_score:
+                leaders = []
+                leaders.append(player)
+                leading_score = number
         else:
-            player_string += f" are tied for first in the {event_data["name"]} event with scores of {leading_score} {event_data["score_text"]}!"
+            write_to_log_file(f"Failed parse the score for {player}")
 
+    #Tell the server whos winning
+    player_string = ""
+    for player in leaders:
+        player_string += f"{player}, "
+        if len(leaders) == 1:
+            player_string = player
+
+    if player_string.endswith(", "):
+        player_string = player_string[:-2]
+
+    write_to_log_file(f"Found the following leaders {player_string} with score {leading_score}")
+
+    if len(leaders) == 1:
+        player_string += f" is leading the pack for the {event_data["name"]} event with a score of {leading_score} {event_data["score_text"]}!"
+    else:
+        player_string += f" are tied for first in the {event_data["name"]} event with scores of {leading_score} {event_data["score_text"]}!"
+
+    #If we want to actually send the message
+    if not silent:
         leader_string = {"text": player_string, "color": "gold"}
         leader_cmd = f"tellraw @a {json.dumps(leader_string)}"
-
-        if not silent:
-            result = mcr.command(leader_cmd)
+        result_display_leader_server = mcrcon_wrapper(leader_cmd)
+        write_to_log_file(f"Displayed leaders {leader_string} with result: {result_display_leader_server}")
     
     print("✅ Displayed leaders!")
+    write_to_log_file("✅ Displayed leaders!")
+
     return leaders, leading_score
 
-#Displays the scordboard for a set amount of time
+
+# Displays the scordboard for a set amount of time specified in the event_data
 def display_scoreboard(event_data):
 
     with MCRcon(rcon_host, rcon_pass, port=rcon_port) as mcr:
@@ -177,26 +243,50 @@ def write_event_winner(event_data, leaderstr, leader_scr):
         f.write(f"{leaderstr}\n\n")
         f.write(f"Final Score: {leader_scr}\n")
 
+
+
+
 #Give the winnig players their reward item!
 def give_reward_item(winners, event_data):
+
+    # Check the list of online players so that we don't give a prize to a non-online player
+    with MCRcon(rcon_host, rcon_pass, port=rcon_port) as mcr:
+        player_list = mcr.command("list")
+        print(player_list)
+
+    get_player_pattern = r"online:\s*(.+)$"
+    match = re.search(get_player_pattern, player_list)
+    if match:
+        online_players = [p.strip() for p in match.group(1).split(",")]
+    else:
+        print(f"Error: couldn't match online players: {player_list}")
+
+    # Make a list of winners who are also online
+    online_winners = [player for player in online_players if player in winners]
+    print(online_winners)
+
     for winner in winners:
-        with MCRcon(rcon_host, rcon_pass, port=rcon_port) as mcr:
-            mcr.command(f'tellraw {winner} "You have won the {event_data["name"]} event!"')
-            time.sleep(1)
-            mcr.command(f'tellraw {winner} "You will be recieving your prize in..."')
-            time.sleep(1)
-            mcr.command(f'tellraw {winner} "3!"')
-            time.sleep(1)
-            mcr.command(f'tellraw {winner} "2!!"')
-            time.sleep(1)
-            mcr.command(f'tellraw {winner} "1!!!"')
-            time.sleep(1)
-            item_gen_str = f'give {winner} ' + event_data["reward_cmd"]
-            item_gen_str = item_gen_str.replace("'", '"')
-            print(item_gen_str)
-            result = mcr.command(item_gen_str)
-            print(result)
-            mcr.command(f'tellraw {winner} "You have been rewared with the legendary {event_data['reward_name']}"!!!')
+        if winner in online_winners:
+            with MCRcon(rcon_host, rcon_pass, port=rcon_port) as mcr:
+                mcr.command(f'tellraw {winner} "You have won the {event_data["name"]} event!"')
+                time.sleep(1)
+                mcr.command(f'tellraw {winner} "You will be recieving your prize in..."')
+                time.sleep(1)
+                mcr.command(f'tellraw {winner} "3!"')
+                time.sleep(1)
+                mcr.command(f'tellraw {winner} "2!!"')
+                time.sleep(1)
+                mcr.command(f'tellraw {winner} "1!!!"')
+                time.sleep(1)
+                item_gen_str = f'give {winner} ' + event_data["reward_cmd"]
+                item_gen_str = item_gen_str.replace("'", '"')
+                print(item_gen_str)
+                result = mcr.command(item_gen_str)
+                print(result)
+                mcr.command(f'tellraw {winner} "You have been rewared with the legendary {event_data['reward_name']}"!!!')
+        else: 
+            pass
+        #TODO: Handle notifying via discord bot when winner isn't online
 
 def run_event(action, json_file):
     event_data = load_json(f'../events_json/{json_file}')
