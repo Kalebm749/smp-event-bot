@@ -14,3 +14,7 @@ __pycache__/
 # VSCode and IDE settings (optional, but handy)
 .vscode/
 .idea/
+
+#Logs
+events/event_results/
+events/framework_logs/
