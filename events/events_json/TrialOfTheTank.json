@@ -1,0 +1,26 @@
+{
+    "name": "Trial of the Tank",
+    "description": "Those who are most worthy can sustain the most damage. Take the most damage in before the event ends to win a fabulous prize!",
+    "is_aggregate": false,
+    "score_text": "damage taken",
+    "aggregate_objective": "DamageTaken",
+    "commands": {
+      "setup": [
+        "scoreboard objectives add DamageTaken minecraft.custom:minecraft.damage_taken"
+      ],
+      "aggregate": [
+      ],
+      "cleanup": [
+        "DamageTaken"
+      ]
+    },
+    "sidebar": 
+      {
+        "displayName": "Damage Recieved",
+        "color": "red",
+        "bold": true,
+        "duration": 15
+      },
+    "reward_cmd" : "netherite_chestplate[custom_name=[{'text':'Tank Chestplate','italic':false}],lore=[[{'text':'A wall against all foes','italic':false}]],rarity=epic,enchantments={mending:1,protection:5,unbreaking:5}]",
+    "reward_name" : "Tank Chestplate"
+}
