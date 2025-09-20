@@ -1,0 +1,26 @@
+{
+    "name": "Creeper Crunch",
+    "description": "There seems to be a creeper infestation on the server. Kill as many as you can until the event ends. The winner gets a prize!",
+    "is_aggregate": false,
+    "score_text": "Creepers slain",
+    "aggregate_objective": "CreepersKilled",
+    "commands": {
+      "setup": [
+        "scoreboard objectives add CreepersKilled minecraft.killed:minecraft.creeper"
+      ],
+      "aggregate": [
+      ],
+      "cleanup": [
+        "CreepersKilled"
+      ]
+    },
+    "sidebar": 
+      {
+        "displayName": "Creepers Slain",
+        "color": "green",
+        "bold": true,
+        "duration": 15
+      },
+    "reward_cmd" : "bow[custom_name=[{'text':'Boomslayer Bow','italic':false}],lore=[[{'text':'Ignites with explosive power','italic':false}]],rarity=epic,enchantments={flame:1,infinity:1,mending:1,power:5,unbreaking:3}]",
+    "reward_name" : "Boomslayer Bow"
+}

@@ -126,16 +126,25 @@ def aggregate_scores(event_data):
     except:
         write_to_log_file("Failed to pull the list of objectives to aggregate. Check event JSON format")
 
-    for player in player_list:
-        # Set aggregate scoreboard objective to zero
-        aggregate_to_zero = f"scoreboard players set {player} {agg_obj} 0"
-        result_to_zero = mcrcon_wrapper(aggregate_to_zero)
-        write_to_log_file(f"Got the following result setting {agg_obj} to 0 for {player}: {result_to_zero}")
+    #Try to check if this is an aggregate style event
+    try:
+        is_aggregate_event = event_data["is_aggregate"]
+    except:
+        write_to_log_file("Failed to check if this is an aggregate event. Check JSON format")
 
-        for objective in objectives:
-            aggregate_scores_additive_cmd = f"scoreboard players operation {player} {agg_obj} += {player} {objective}"
-            additive_result = mcrcon_wrapper(aggregate_scores_additive_cmd)
-            write_to_log_file(f"Got the following result aggregating {agg_obj} with {objective} for {player}: {additive_result}")
+    if is_aggregate_event:
+        for player in player_list:
+            # Set aggregate scoreboard objective to zero
+            aggregate_to_zero = f"scoreboard players set {player} {agg_obj} 0"
+            result_to_zero = mcrcon_wrapper(aggregate_to_zero)
+            write_to_log_file(f"Got the following result setting {agg_obj} to 0 for {player}: {result_to_zero}")
+
+            for objective in objectives:
+                aggregate_scores_additive_cmd = f"scoreboard players operation {player} {agg_obj} += {player} {objective}"
+                additive_result = mcrcon_wrapper(aggregate_scores_additive_cmd)
+                write_to_log_file(f"Got the following result aggregating {agg_obj} with {objective} for {player}: {additive_result}")
+    else:
+        write_to_log_file("Scores do not need aggregating for this event")
 
     print("✅ Calculated Aggregate Scores")
     write_to_log_file(f"✅ Calculated Aggregate Scores")

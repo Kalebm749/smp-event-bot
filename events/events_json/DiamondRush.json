@@ -1,0 +1,32 @@
+{
+    "name": "Diamond Rush 💎",
+    "description": "Mine as many diamond ore blocks as you can before the event is over. The winner will recieve a special prize!",
+    "is_aggregate": "true",
+    "score_text": "diamond ore mined",
+    "aggregate_objective": "TotalDiamondOre",
+    "commands": {
+      "setup": [
+        "scoreboard objectives add DiamondOre minecraft.mined:minecraft.diamond_ore",
+        "scoreboard objectives add DeepDiamondOre minecraft.mined:minecraft.deepslate_diamond_ore",
+        "scoreboard objectives add TotalDiamondOre dummy \"Total Diamond Ore\""
+      ],
+      "aggregate": [
+        "DiamondOre",
+        "DeepDiamondOre"
+      ],
+      "cleanup": [
+        "DiamondOre",
+        "DeepDiamondOre",
+        "TotalDiamondOre"
+      ]
+    },
+    "sidebar": 
+      {
+        "displayName": "Diamonds Mined ⛏️",
+        "color": "blue",
+        "bold": true,
+        "duration": 15
+      },
+    "reward_cmd" : "netherite_pickaxe[custom_name=[{'text':'Prospector Pickaxe','italic':false}],lore=[[{'text':'Yearns for the mines','italic':false}]],rarity=epic,enchantments={efficiency:6,fortune:4,mending:1,unbreaking:3}]",
+    "reward_name" : "Prospector Pickaxe"
+}
