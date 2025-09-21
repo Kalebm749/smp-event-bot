@@ -116,7 +116,7 @@ def main():
                         last_time = datetime.fromisoformat(last_time_str)
                         if now - last_time >= timedelta(minutes=10):
                             call_display = True
-                        handler_logger(f"It been longer than 10 minutes since {event["unique_event_name"]} had the scoreboard displayed")
+                            handler_logger(f"It been longer than 10 minutes since {event["unique_event_name"]} had the scoreboard displayed")
                     except ValueError:
                         # invalid format, just call display
                         print("Value Error for why?")
@@ -150,6 +150,7 @@ def main():
                 winners = []
                 score = None
 
+                handler_logger(f"Trying to find results file {results_pattern}")
                 results_file = glob.glob(results_pattern)
                 if results_file:
                     try:
@@ -157,16 +158,15 @@ def main():
                             results_data = json.load(f)
                             winners = results_data.get("Leaders", [])
                             score = results_data.get("FinalScore", None)
+                            handler_logger(f"Opened results file {results_file[0]} and found winners {winners} and score {score}")
                     except Exception as e:
-                        print(f"ERROR Finding Results File")
+                        handler_logger(f"Error finding results file!")
                 else:
-                    print("Couldn't find results file!")
+                    handler_logger(f"Couldn't find results file")
 
                 if not winners:
                     winners = ['no_Participants']
                     score=1
-
-                print(winners, score)
 
                 handler_logger(f"{event["unique_event_name"]} has been cleaned up. Sending discord notification.")
                 # Notify Discord

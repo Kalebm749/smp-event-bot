@@ -295,7 +295,7 @@ def write_event_winner(event_data, leaders, final_score):
     date_str = datetime.now().strftime("%m-%d-%Y")
     safe_event_name = event_data['name'].replace(" ", "-")
     filename = f"{safe_event_name}-{date_str}.json"
-    filepath = os.path.join(logs_path, filename)
+    filepath = f"{logs_path}{filename}"
     
     # Prepare JSON data
     output_data = {
