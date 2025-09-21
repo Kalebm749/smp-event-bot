@@ -1,0 +1,113 @@
+body {
+    background-color: #0f1a2b; /* deep dark blue */
+    color: #e0e0e0;
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 20px auto;
+    padding: 0 10px;
+}
+
+/* --- Navbar --- */
+nav {
+    background-color: #1f2f4f;
+    padding: 10px 20px;
+}
+
+nav a {
+    color: #cfd8dc;
+    text-decoration: none;
+    margin-right: 20px;
+    font-weight: bold;
+}
+
+nav a:hover {
+    color: #ffffff;
+}
+
+/* --- Panels --- */
+.panel {
+    background-color: #1c2a42;
+    border: 1px solid #3a4a6f;
+    border-radius: 6px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.panel h2 {
+    margin-top: 0;
+    cursor: pointer;
+}
+
+/* --- Collapsible content --- */
+.collapsible-content {
+    display: block; /* Expanded by default */
+    margin-top: 10px;
+}
+
+/* --- Tables --- */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 10px;
+}
+
+th, td {
+    padding: 8px;
+    border: 1px solid #3a4a6f;
+    text-align: left;
+}
+
+tr.past { background-color: #4d2c2c; }      /* muted red */
+tr.ongoing { background-color: #2c4d2c; }   /* muted green */
+tr.future { background-color: #4d4a2c; }    /* muted yellow */
+
+/* --- Lists --- */
+ul {
+    list-style: none;
+    padding: 0;
+    max-height: 250px;
+    overflow-y: auto;
+}
+
+li {
+    cursor: pointer;
+    padding: 6px;
+    border-bottom: 1px solid #3a4a6f;
+}
+
+li:hover {
+    background-color: #2e3e5d;
+}
+
+/* --- Log / JSON content --- */
+pre, #logViewer, #eventJsonViewer {
+    background-color: #2e3e5d;
+    padding: 10px;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    max-height: 300px;
+    border-radius: 4px;
+    border: 1px solid #3a4a6f;
+    margin-top: 10px;
+}
+
+/* --- Buttons --- */
+button.refresh-btn {
+    background-color: #3a4a6f;
+    color: #e0e0e0;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+button.refresh-btn:hover {
+    background-color: #50628b;
+}
+

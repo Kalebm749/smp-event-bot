@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Event Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav>
+        <a href="{{ url_for('index') }}">Dashboard</a>
+        <a href="{{ url_for('create_event') }}">Create Event</a>
+    </nav>
+
+    <div class="container">
+        <!-- Calendar Panel -->
+        <div class="panel">
+            <h2>Calendar Events <button class="refresh-btn" onclick="refreshCalendar()">Refresh</button></h2>
+            <table id="calendar-table">
+                <thead>
+                    <tr>
+                        <th>Event</th>
+                        <th>Start</th>
+                        <th>End</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Populated by JS -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Event JSON Panel -->
+        <div class="panel">
+            <h2>Event JSON Files <button class="refresh-btn" onclick="refreshEventFiles()">Refresh</button></h2>
+            <table id="event-json-table">
+                <thead>
+                    <tr>
+                        <th>Filename</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Populated by JS -->
+                </tbody>
+            </table>
+            <pre id="event-json-content"></pre>
+        </div>
+
+        <!-- Logs Panel -->
+        <div class="panel">
+            <h2>Logs <button class="refresh-btn" onclick="refreshLogs()">Refresh</button></h2>
+            <table id="logs-table">
+                <thead>
+                    <tr>
+                        <th>Filename</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Populated by JS -->
+                </tbody>
+            </table>
+            <pre id="log-content"></pre>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
+

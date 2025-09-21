@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Create Event</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        /* Ensure form fields stack vertically */
+        #create-event-form div.form-group {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 15px;
+        }
+
+        #create-event-form input,
+        #create-event-form select,
+        #create-event-form textarea {
+            width: 100%;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #3a4a6f;
+            background-color: #1c2a42;
+            color: #e0e0e0;
+            box-sizing: border-box;
+        }
+
+        #create-event-form textarea {
+            resize: vertical;
+        }
+
+        #create-event-form button {
+            background-color: #3a4a6f;
+            color: #e0e0e0;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        #create-event-form button:hover {
+            background-color: #50628b;
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="{{ url_for('index') }}">Dashboard</a>
+        <a href="{{ url_for('create_event') }}">Create Event</a>
+    </nav>
+
+    <div class="container">
+        <div class="panel">
+            <h2>Create New Event</h2>
+            <form id="create-event-form" method="POST" action="{{ url_for('create_event') }}">
+                
+                <!-- Event JSON Selection -->
+                <div class="form-group">
+                    <label for="event_json">Event JSON</label>
+                    <select id="event_json" name="event_json" required>
+                        <option value="" disabled selected>Select an event JSON</option>
+                        {% for file in event_files %}
+                        <option value="{{ file }}">{{ file }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Event Name -->
+                <div class="form-group">
+                    <label for="name">Event Name</label>
+                    <input type="text" id="name" name="name" placeholder="Event Name" required>
+                </div>
+
+                <!-- Timezone Selection -->
+                <div class="form-group">
+                    <label for="timezone">Timezone</label>
+                    <select id="timezone" name="timezone" required>
+                        <option value="" disabled selected>Select timezone</option>
+                        <option value="US/Eastern">US/Eastern</option>
+                        <option value="US/Central">US/Central</option>
+                        <option value="US/Mountain">US/Mountain</option>
+                        <option value="US/Pacific">US/Pacific</option>
+                        <option value="Europe/London">Europe/London</option>
+                        <option value="Europe/Berlin">Europe/Berlin</option>
+                        <option value="Europe/Paris">Europe/Paris</option>
+                        <option value="Europe/Madrid">Europe/Madrid</option>
+                        <option value="Europe/Rome">Europe/Rome</option>
+                        <option value="Europe/Amsterdam">Europe/Amsterdam</option>
+                        <option value="Europe/Stockholm">Europe/Stockholm</option>
+                        <option value="Europe/Zurich">Europe/Zurich</option>
+                    </select>
+                </div>
+
+                <!-- Start Date and Time -->
+                <div class="form-group">
+                    <label>Start Date</label>
+                    <input type="date" id="start_date" name="start_date" required>
+                </div>
+                <div class="form-group">
+                    <label>Start Time</label>
+                    <input type="text" id="start_time" name="start_time" placeholder="HH:MM" required>
+                </div>
+                <div class="form-group">
+                    <label>Start AM/PM</label>
+                    <select id="start_ampm" name="start_ampm" required>
+                        <option value="AM">AM</option>
+                        <option value="PM">PM</option>
+                    </select>
+                </div>
+
+                <!-- End Date and Time -->
+                <div class="form-group">
+                    <label>End Date</label>
+                    <input type="date" id="end_date" name="end_date" required>
+                </div>
+                <div class="form-group">
+                    <label>End Time</label>
+                    <input type="text" id="end_time" name="end_time" placeholder="HH:MM" required>
+                </div>
+                <div class="form-group">
+                    <label>End AM/PM</label>
+                    <select id="end_ampm" name="end_ampm" required>
+                        <option value="AM">AM</option>
+                        <option value="PM">PM</option>
+                    </select>
+                </div>
+
+                <!-- Description -->
+                <div class="form-group">
+                    <label for="description">Description</label>
+                    <textarea id="description" name="description" rows="5" placeholder="Enter event description" required></textarea>
+                </div>
+
+                <button type="submit">Create Event</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Auto-populate event name from JSON selection
+        const eventJsonSelect = document.getElementById("event_json");
+        const nameInput = document.getElementById("name");
+
+        eventJsonSelect.addEventListener("change", () => {
+            const selected = eventJsonSelect.value.replace(".json", "");
+            const spaced = selected.replace(/([a-z])([A-Z])/g, "$1 $2");
+            nameInput.value = spaced;
+        });
+
+        // On submit, combine date, time, AM/PM into proper string for backend
+        const form = document.getElementById("create-event-form");
+        form.addEventListener("submit", () => {
+            const start_date = document.getElementById("start_date").value;
+            const start_time = document.getElementById("start_time").value;
+            const start_ampm = document.getElementById("start_ampm").value;
+            const end_date = document.getElementById("end_date").value;
+            const end_time = document.getElementById("end_time").value;
+            const end_ampm = document.getElementById("end_ampm").value;
+
+            // Format for backend: MM/DD/YYYY HH:MMAM/PM
+            const startStr = `${start_date.replace(/-/g,'/') } ${start_time}${start_ampm}`;
+            const endStr = `${end_date.replace(/-/g,'/') } ${end_time}${end_ampm}`;
+
+            // Set hidden inputs to pass to Flask
+            let hiddenStart = document.createElement("input");
+            hiddenStart.type = "hidden";
+            hiddenStart.name = "start";
+            hiddenStart.value = startStr;
+            form.appendChild(hiddenStart);
+
+            let hiddenEnd = document.createElement("input");
+            hiddenEnd.type = "hidden";
+            hiddenEnd.name = "end";
+            hiddenEnd.value = endStr;
+            form.appendChild(hiddenEnd);
+
+            // Disable the visible inputs
+            document.getElementById("start_date").disabled = true;
+            document.getElementById("start_time").disabled = true;
+            document.getElementById("start_ampm").disabled = true;
+            document.getElementById("end_date").disabled = true;
+            document.getElementById("end_time").disabled = true;
+            document.getElementById("end_ampm").disabled = true;
+        });
+    </script>
+</body>
+</html>
+
