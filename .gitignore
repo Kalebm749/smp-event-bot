@@ -18,3 +18,4 @@ __pycache__/
 #Logs
 events/event_results/
 events/framework_logs/
+logs/

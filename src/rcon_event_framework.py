@@ -1,14 +1,21 @@
+#!/usr/bin/env python3
 import json
 import time
 import sys
+import os
 from mcrcon import MCRcon # type: ignore
 from datetime import datetime
+from dotenv import load_dotenv
 import re
 
-# --- RCON settings ---
-rcon_host = "10.0.0.70"
-rcon_port = 25575
-rcon_pass = "1234"
+# LOAD CONFIG
+load_dotenv()
+rcon_host = os.getenv("RCON_HOST")
+rcon_port = int(os.getenv("RCON_PORT"))
+rcon_pass = os.getenv("RCON_PASS")
+events_path = os.getenv("EVENTS_JSON_PATH")
+logs_path = os.getenv("LOGS_PATH")
+
 
 
 def load_json(event_file):
@@ -23,7 +30,7 @@ def escape_mc_string(text):
 
 
 def write_to_log_file(result):
-    log_file_path = '../framework_logs/event_logs.txt'
+    log_file_path = f'{logs_path}event_logs.txt'
 
     with open (log_file_path, "a") as f:
         f.write(f"{result}\n")
@@ -274,25 +281,30 @@ def cleanup_objs(event_data):
     write_to_log_file(f"✅ Event has been cleaned up!")
 
 
-def write_event_winner(event_data, leader_list, leader_score):
-
-    """Write final event results to a text file"""
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    filename = f"{event_data['name']}_{timestamp}.txt"
-    filepath = f'../event_results/{filename}'
-
-    with open(filepath, "w") as f:
-        f.write(f"Event: {event_data['name']}\n")
-        f.write(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-        f.write(f"Description: {event_data.get('description','')}\n\n")
-        f.write("Leaders:\n")
-        f.write(f"{leader_list}\n\n")
-        f.write(f"Final Score: {leader_score}\n")
-
-    write_to_log_file(f"{leader_list} won the vent with score {leader_score}")
-
-    print("✅ Wrote winners to event file!")
-    write_to_log_file(f"✅ Wrote winners to event file!")
+def write_event_winner(event_data, leaders, final_score):
+ 
+    # Format filename: Event-Name-MM-DD-YYYY.json
+    date_str = datetime.now().strftime("%m-%d-%Y")
+    safe_event_name = event_data['name'].replace(" ", "-")
+    filename = f"{safe_event_name}-{date_str}.json"
+    filepath = os.path.join(logs_path, filename)
+    
+    # Prepare JSON data
+    output_data = {
+        "Event": event_data['name'],
+        "Date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "Description": event_data.get("description", ""),
+        "Leaders": leaders,
+        "FinalScore": final_score
+    }
+    
+    # Write JSON file
+    try:
+        with open(filepath, "w") as f:
+            json.dump(output_data, f, indent=2)
+        print(f"✅ Event results saved to {filepath}")
+    except Exception as e:
+        print(f"❌ Failed to save event results: {e}")
 
 #Give the winnig players their reward item!
 def give_reward_item(winners, event_data):
@@ -424,7 +436,7 @@ def closing_ceremony(event_data):
 def run_event(action, json_file):
     # Load the requested json file
     try:
-        event_data = load_json(f'../events_json/{json_file}')
+        event_data = load_json(f'{events_path}{json_file}')
     except:
         print(f"❌ Failed to load data for {json_file}. Check event JSON file exists")
         exit()
