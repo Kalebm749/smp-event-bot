@@ -55,7 +55,9 @@ def build_embed(event, msg_type, winners=None, score=None):
 
     elif msg_type == "over":
         embed.add_field(name="Status", value="❌ This event has ended!", inline=False)
-        if winners:
+        if winners[0] == "no_Participants":
+            embed.add_field(name="❌ There are no winners. Nobody participated in the event :(", value="", inline=False)
+        elif winners:
             embed.add_field(name="🏆 Winners", value="\n".join(winners), inline=False)
         if score:
             embed.add_field(name="Score(s)", value=score, inline=False)

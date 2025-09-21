@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Event Handler Monitor</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .status {
+            font-size: 24px;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+        .running { color: #4caf50; }
+        .stopped { color: #f44336; }
+
+        .monitor-buttons button {
+            padding: 10px 20px;
+            margin: 10px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #3a4a6f;
+            color: #e0e0e0;
+        }
+        .monitor-buttons button:hover { background-color: #50628b; }
+
+        .container { text-align: center; padding: 20px; }
+
+        /* Log viewer styles */
+        #log-viewer {
+            background-color: #111;
+            color: #0f0;
+            font-family: monospace;
+            text-align: left;
+            padding: 10px;
+            border-radius: 5px;
+            height: 400px;
+            overflow-y: auto;
+            margin-top: 20px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    {% include 'navbar.html' %}
+
+    <div class="container">
+        <h1>Event Handler Monitor</h1>
+        <div class="status" id="status">Checking...</div>
+
+        <div class="monitor-buttons">
+            <button id="start-btn">Start Event Handler</button>
+            <button id="stop-btn">Stop Event Handler</button>
+        </div>
+
+        <h2>Handler Logs</h2>
+        <div id="log-viewer"></div>
+    </div>
+
+    <script>
+        async function refreshStatus() {
+            try {
+                const res = await fetch("/api/event_handler_status");
+                const data = await res.json();
+                const statusDiv = document.getElementById("status");
+                statusDiv.textContent = data.status;
+                statusDiv.className = "status " + (data.status === "Running" ? "running" : "stopped");
+            } catch (err) {
+                console.error("Error fetching status:", err);
+                const statusDiv = document.getElementById("status");
+                statusDiv.textContent = "Error";
+                statusDiv.className = "status stopped";
+            }
+        }
+
+        document.getElementById("start-btn").addEventListener("click", async () => {
+            await fetch("/api/event_handler/start", { method: "POST" });
+            refreshStatus();
+        });
+
+        document.getElementById("stop-btn").addEventListener("click", async () => {
+            await fetch("/api/event_handler/stop", { method: "POST" });
+            refreshStatus();
+        });
+
+        // Auto-refresh status every 5 seconds
+        setInterval(refreshStatus, 5000);
+        document.addEventListener("DOMContentLoaded", refreshStatus);
+
+        // Logs via SSE
+        const logViewer = document.getElementById("log-viewer");
+        const evtSource = new EventSource("/api/event_handler/logs");
+
+        evtSource.onmessage = function(e) {
+            const isAtBottom = logViewer.scrollHeight - logViewer.scrollTop === logViewer.clientHeight;
+            logViewer.textContent += e.data + "\n";
+            // Keep last ~200 lines in DOM for performance
+            const lines = logViewer.textContent.split("\n");
+            if (lines.length > 200) {
+                logViewer.textContent = lines.slice(-200).join("\n");
+            }
+            if (isAtBottom) {
+                logViewer.scrollTop = logViewer.scrollHeight;
+            }
+        };
+    </script>
+</body>
+</html>

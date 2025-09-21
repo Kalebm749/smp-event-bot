@@ -28,12 +28,19 @@ async function refreshEventFiles() {
         tr.innerHTML = `<td class="json-file" onclick="loadEventJson('${file}')">${file}</td>`;
         tbody.appendChild(tr);
     });
+    // Clear event JSON content area when refreshing list
+    document.getElementById("event-json-content").textContent = "";
 }
 
 async function loadEventJson(filename) {
     const res = await fetch(`/api/event_json_content/${filename}`);
     const content = await res.text();
-    document.getElementById("event-json-content").textContent = content;
+    const pre = document.getElementById("event-json-content");
+    pre.textContent = content;
+
+    // Ensure JSON table row stays expanded
+    const jsonTable = document.getElementById("event-json-table");
+    jsonTable.style.display = "table";
 }
 
 // --- Logs ---
@@ -47,12 +54,18 @@ async function refreshLogs() {
         tr.innerHTML = `<td class="log-file" onclick="loadLog('${file}')">${file}</td>`;
         tbody.appendChild(tr);
     });
+    // Clear log content area when refreshing list
+    document.getElementById("log-content").textContent = "";
 }
 
 async function loadLog(filename) {
     const res = await fetch(`/api/log_content/${filename}`);
     const content = await res.text();
     document.getElementById("log-content").textContent = content;
+
+    // Ensure log table row stays expanded
+    const logsTable = document.getElementById("logs-table");
+    logsTable.style.display = "table";
 }
 
 // --- Initial load ---
@@ -61,4 +74,3 @@ document.addEventListener("DOMContentLoaded", () => {
     refreshEventFiles();
     refreshLogs();
 });
-

@@ -5,7 +5,7 @@
     <title>Create Event</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <style>
-        /* Ensure form fields stack vertically */
+        /* Stack form fields vertically */
         #create-event-form div.form-group {
             display: flex;
             flex-direction: column;
@@ -44,10 +44,7 @@
     </style>
 </head>
 <body>
-    <nav>
-        <a href="{{ url_for('index') }}">Dashboard</a>
-        <a href="{{ url_for('create_event') }}">Create Event</a>
-    </nav>
+    {% include 'navbar.html' %}
 
     <div class="container">
         <div class="panel">
@@ -68,10 +65,10 @@
                 <!-- Event Name -->
                 <div class="form-group">
                     <label for="name">Event Name</label>
-                    <input type="text" id="name" name="name" placeholder="Event Name" required>
+                    <input type="text" id="name" name="name" placeholder="Event Name" readonly required>
                 </div>
 
-                <!-- Timezone Selection -->
+                <!-- Timezone -->
                 <div class="form-group">
                     <label for="timezone">Timezone</label>
                     <select id="timezone" name="timezone" required>
@@ -91,14 +88,14 @@
                     </select>
                 </div>
 
-                <!-- Start Date and Time -->
+                <!-- Start -->
                 <div class="form-group">
                     <label>Start Date</label>
                     <input type="date" id="start_date" name="start_date" required>
                 </div>
                 <div class="form-group">
-                    <label>Start Time</label>
-                    <input type="text" id="start_time" name="start_time" placeholder="HH:MM" required>
+                    <label>Start Time (HH:MM)</label>
+                    <input type="text" id="start_time" name="start_time" placeholder="04:30" required>
                 </div>
                 <div class="form-group">
                     <label>Start AM/PM</label>
@@ -108,14 +105,14 @@
                     </select>
                 </div>
 
-                <!-- End Date and Time -->
+                <!-- End -->
                 <div class="form-group">
                     <label>End Date</label>
                     <input type="date" id="end_date" name="end_date" required>
                 </div>
                 <div class="form-group">
-                    <label>End Time</label>
-                    <input type="text" id="end_time" name="end_time" placeholder="HH:MM" required>
+                    <label>End Time (HH:MM)</label>
+                    <input type="text" id="end_time" name="end_time" placeholder="06:30" required>
                 </div>
                 <div class="form-group">
                     <label>End AM/PM</label>
@@ -137,7 +134,7 @@
     </div>
 
     <script>
-        // Auto-populate event name from JSON selection
+        // Auto-populate event name
         const eventJsonSelect = document.getElementById("event_json");
         const nameInput = document.getElementById("name");
 
@@ -147,21 +144,21 @@
             nameInput.value = spaced;
         });
 
-        // On submit, combine date, time, AM/PM into proper string for backend
+        // On submit: combine date, time, AM/PM into hidden fields
         const form = document.getElementById("create-event-form");
-        form.addEventListener("submit", () => {
+        form.addEventListener("submit", (e) => {
             const start_date = document.getElementById("start_date").value;
-            const start_time = document.getElementById("start_time").value;
+            const start_time = document.getElementById("start_time").value.trim();
             const start_ampm = document.getElementById("start_ampm").value;
             const end_date = document.getElementById("end_date").value;
-            const end_time = document.getElementById("end_time").value;
+            const end_time = document.getElementById("end_time").value.trim();
             const end_ampm = document.getElementById("end_ampm").value;
 
-            // Format for backend: MM/DD/YYYY HH:MMAM/PM
-            const startStr = `${start_date.replace(/-/g,'/') } ${start_time}${start_ampm}`;
-            const endStr = `${end_date.replace(/-/g,'/') } ${end_time}${end_ampm}`;
+            // Add a space before AM/PM for Python strptime
+            const startStr = `${start_date} ${start_time} ${start_ampm}`;
+            const endStr = `${end_date} ${end_time} ${end_ampm}`;
 
-            // Set hidden inputs to pass to Flask
+            // Set hidden inputs
             let hiddenStart = document.createElement("input");
             hiddenStart.type = "hidden";
             hiddenStart.name = "start";
@@ -173,16 +170,7 @@
             hiddenEnd.name = "end";
             hiddenEnd.value = endStr;
             form.appendChild(hiddenEnd);
-
-            // Disable the visible inputs
-            document.getElementById("start_date").disabled = true;
-            document.getElementById("start_time").disabled = true;
-            document.getElementById("start_ampm").disabled = true;
-            document.getElementById("end_date").disabled = true;
-            document.getElementById("end_time").disabled = true;
-            document.getElementById("end_ampm").disabled = true;
         });
     </script>
 </body>
 </html>
-

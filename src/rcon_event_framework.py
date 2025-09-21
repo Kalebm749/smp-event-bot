@@ -119,39 +119,43 @@ def start_event(event_data):
 def aggregate_scores(event_data):
     #Grab a list of all the players
     player_list = get_players()
-    write_to_log_file(f"Found the following tracked players for aggregate_scores {player_list}")
+    if player_list:
+        write_to_log_file(f"Found the following tracked players for aggregate_scores {player_list}")
 
-    #Grabs the aggregate objective
-    try:
-        agg_obj = event_data["aggregate_objective"]
-    except:
-        write_to_log_file("Failed to pull the aggregate objective. Check event JSON format")
+        #Grabs the aggregate objective
+        try:
+            agg_obj = event_data["aggregate_objective"]
+        except:
+            write_to_log_file("Failed to pull the aggregate objective. Check event JSON format")
 
-    #Grab the objectives to aggregate on
-    try:
-        objectives = event_data["commands"]["aggregate"]
-    except:
-        write_to_log_file("Failed to pull the list of objectives to aggregate. Check event JSON format")
+        #Grab the objectives to aggregate on
+        try:
+            objectives = event_data["commands"]["aggregate"]
+        except:
+            write_to_log_file("Failed to pull the list of objectives to aggregate. Check event JSON format")
 
-    #Try to check if this is an aggregate style event
-    try:
-        is_aggregate_event = event_data["is_aggregate"]
-    except:
-        write_to_log_file("Failed to check if this is an aggregate event. Check JSON format")
+        #Try to check if this is an aggregate style event
+        try:
+            is_aggregate_event = event_data["is_aggregate"]
+        except:
+            write_to_log_file("Failed to check if this is an aggregate event. Check JSON format")
 
-    if is_aggregate_event:
-        for player in player_list:
-            # Set aggregate scoreboard objective to zero
-            aggregate_to_zero = f"scoreboard players set {player} {agg_obj} 0"
-            result_to_zero = mcrcon_wrapper(aggregate_to_zero)
-            write_to_log_file(f"Got the following result setting {agg_obj} to 0 for {player}: {result_to_zero}")
+        if is_aggregate_event:
+            for player in player_list:
+                # Set aggregate scoreboard objective to zero
+                aggregate_to_zero = f"scoreboard players set {player} {agg_obj} 0"
+                result_to_zero = mcrcon_wrapper(aggregate_to_zero)
+                write_to_log_file(f"Got the following result setting {agg_obj} to 0 for {player}: {result_to_zero}")
 
-            for objective in objectives:
-                aggregate_scores_additive_cmd = f"scoreboard players operation {player} {agg_obj} += {player} {objective}"
-                additive_result = mcrcon_wrapper(aggregate_scores_additive_cmd)
-                write_to_log_file(f"Got the following result aggregating {agg_obj} with {objective} for {player}: {additive_result}")
+                for objective in objectives:
+                    aggregate_scores_additive_cmd = f"scoreboard players operation {player} {agg_obj} += {player} {objective}"
+                    additive_result = mcrcon_wrapper(aggregate_scores_additive_cmd)
+                    write_to_log_file(f"Got the following result aggregating {agg_obj} with {objective} for {player}: {additive_result}")
+        else:
+            write_to_log_file("Scores do not need aggregating for this event")
     else:
-        write_to_log_file("Scores do not need aggregating for this event")
+        print("There were no tracked players. Nothing to aggregate.")
+        write_to_log_file(f"✅ Calculated Aggregate Scores")
 
     print("✅ Calculated Aggregate Scores")
     write_to_log_file(f"✅ Calculated Aggregate Scores")
@@ -169,51 +173,55 @@ def find_leaders(event_data, silent=False):
     leaders = []
     leading_score = 0
 
-    for player in player_list:
-        get_player_aggregate_score_cmd = f"scoreboard players get {player} {main_obj}"
-        aggregate_score_result = mcrcon_wrapper(get_player_aggregate_score_cmd)
-        write_to_log_file(f"Checked score for {player} got {aggregate_score_result}")
+    if player_list:
+        for player in player_list:
+            get_player_aggregate_score_cmd = f"scoreboard players get {player} {main_obj}"
+            aggregate_score_result = mcrcon_wrapper(get_player_aggregate_score_cmd)
+            write_to_log_file(f"Checked score for {player} got {aggregate_score_result}")
 
-        #Search the aggregate score result for the numerical value
-        match = re.search(r"has (\d+)", aggregate_score_result[0])
-        if match:
-            number = int(match.group(1))
-            if not leaders:
-                leaders.append(player)
-                leading_score = number
-            elif number == leading_score:
-                leaders.append(player)
-            elif number > leading_score:
-                leaders = []
-                leaders.append(player)
-                leading_score = number
-        else:
-            write_to_log_file(f"Failed parse the score for {player}")
+            #Search the aggregate score result for the numerical value
+            match = re.search(r"has (\d+)", aggregate_score_result[0])
+            if match:
+                number = int(match.group(1))
+                if not leaders:
+                    leaders.append(player)
+                    leading_score = number
+                elif number == leading_score:
+                    leaders.append(player)
+                elif number > leading_score:
+                    leaders = []
+                    leaders.append(player)
+                    leading_score = number
+            else:
+                write_to_log_file(f"Failed parse the score for {player}")
 
-    #Tell the server whos winning
-    player_string = ""
-    for player in leaders:
-        player_string += f"{player}, "
+        #Tell the server whos winning
+        player_string = ""
+        for player in leaders:
+            player_string += f"{player}, "
+            if len(leaders) == 1:
+                player_string = player
+
+        if player_string.endswith(", "):
+            player_string = player_string[:-2]
+
+        write_to_log_file(f"Found the following leaders {player_string} with score {leading_score}")
+
         if len(leaders) == 1:
-            player_string = player
+            player_string += f" is leading the pack for the {event_data["name"]} event with a score of {leading_score} {event_data["score_text"]}!"
+        else:
+            player_string += f" are tied for first in the {event_data["name"]} event with scores of {leading_score} {event_data["score_text"]}!"
 
-    if player_string.endswith(", "):
-        player_string = player_string[:-2]
-
-    write_to_log_file(f"Found the following leaders {player_string} with score {leading_score}")
-
-    if len(leaders) == 1:
-        player_string += f" is leading the pack for the {event_data["name"]} event with a score of {leading_score} {event_data["score_text"]}!"
+        #If we want to actually send the message
+        if not silent:
+            leader_string = {"text": player_string, "color": "gold"}
+            leader_cmd = f"tellraw @a {json.dumps(leader_string)}"
+            result_display_leader_server = mcrcon_wrapper(leader_cmd)
+            write_to_log_file(f"Displayed leaders {leader_string} with result: {result_display_leader_server}")
     else:
-        player_string += f" are tied for first in the {event_data["name"]} event with scores of {leading_score} {event_data["score_text"]}!"
+        print("No players were tracked!")
+        write_to_log_file("No players were tracked!")
 
-    #If we want to actually send the message
-    if not silent:
-        leader_string = {"text": player_string, "color": "gold"}
-        leader_cmd = f"tellraw @a {json.dumps(leader_string)}"
-        result_display_leader_server = mcrcon_wrapper(leader_cmd)
-        write_to_log_file(f"Displayed leaders {leader_string} with result: {result_display_leader_server}")
-    
     print("✅ Displayed leaders!")
     write_to_log_file("✅ Displayed leaders!")
 

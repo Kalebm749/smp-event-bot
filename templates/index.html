@@ -6,10 +6,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-    <nav>
-        <a href="{{ url_for('index') }}">Dashboard</a>
-        <a href="{{ url_for('create_event') }}">Create Event</a>
-    </nav>
+    {% include 'navbar.html' %}
 
     <div class="container">
         <!-- Calendar Panel -->
