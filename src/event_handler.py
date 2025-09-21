@@ -13,7 +13,7 @@ CALENDAR_FILE = os.getenv("CALENDAR_FILE")
 BOT_PY_PATH = "./bot.py"
 RCON_FRAMEWORK_PATH = "./rcon_event_framework.py"
 RESULTS_PATH = os.getenv("LOGS_PATH")
-CHECK_INTERVAL = 60  # seconds, how often to check for events
+CHECK_INTERVAL = 30  # seconds, how often to check for events
 
 # ====== HELPER FUNCTIONS ======
 def load_calendar():

@@ -30,5 +30,53 @@
     "last_scoreboard_time": "2025-09-21T01:45:37.733786+00:00",
     "event_started": false,
     "event_over": true
+  },
+  {
+    "unique_event_name": "Timber-Trial-09-21-2025",
+    "name": "Timber Trial",
+    "event_json": "TimberTrial.json",
+    "description": "Mine as many logs as you can!",
+    "start": "2025-09-21T16:20:00+00:00",
+    "end": "2025-09-21T16:30:00+00:00",
+    "24_hour_sent": true,
+    "30_minute_sent": true,
+    "event_start_sent": true,
+    "event_over_sent": true,
+    "event_in_progress": false,
+    "last_scoreboard_time": "2025-09-21T16:20:27.158763+00:00",
+    "event_started": false,
+    "event_over": true
+  },
+  {
+    "unique_event_name": "Timber-Trial-09-21-2025",
+    "name": "Timber Trial",
+    "event_json": "TimberTrial.json",
+    "description": "Mine logs",
+    "start": "2025-09-21T17:27:00+00:00",
+    "end": "2025-09-21T17:30:00+00:00",
+    "24_hour_sent": true,
+    "30_minute_sent": true,
+    "event_start_sent": true,
+    "event_over_sent": true,
+    "event_in_progress": false,
+    "last_scoreboard_time": "2025-09-21T17:27:12.605447+00:00",
+    "event_started": false,
+    "event_over": true
+  },
+  {
+    "unique_event_name": "Timber-Trial-09-21-2025",
+    "name": "Timber Trial",
+    "event_json": "TimberTrial.json",
+    "description": "Lets see who can mine the most logs!",
+    "start": "2025-09-21T17:40:00+00:00",
+    "end": "2025-09-21T18:00:00+00:00",
+    "24_hour_sent": true,
+    "30_minute_sent": true,
+    "event_start_sent": true,
+    "event_over_sent": false,
+    "event_in_progress": true,
+    "last_scoreboard_time": "2025-09-21T17:41:02.912746+00:00",
+    "event_started": false,
+    "event_over": false
   }
 ]
