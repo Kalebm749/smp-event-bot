@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Create Event JSON</title>
+  <style>
+    /* --- Reset body/margins for full-width navbar --- */
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      background-color: #0f1a2b;
+      color: #e0e0e0;
+      font-family: Arial, sans-serif;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 20px auto;
+      padding: 0 10px;
+    }
+
+    /* --- Navbar --- */
+    nav {
+      width: 100%;
+      background-color: #1f2f4f;
+      padding: 10px 20px;
+      box-sizing: border-box;
+    }
+
+    nav a {
+      color: #cfd8dc;
+      text-decoration: none;
+      margin-right: 20px;
+      font-weight: bold;
+    }
+
+    nav a:hover {
+      color: #ffffff;
+    }
+
+    /* --- Panels / Form --- */
+    fieldset {
+      margin-bottom: 20px;
+      padding: 15px;
+      border: 1px solid #3a4a6f;
+      border-radius: 6px;
+      background-color: #1c2a42;
+    }
+
+    legend {
+      font-weight: bold;
+    }
+
+    label {
+      display: block;
+      margin: 5px 0;
+    }
+
+    input[type=text], textarea, select {
+      width: 100%;
+      padding: 6px;
+      margin-top: 3px;
+      box-sizing: border-box;
+      border-radius: 4px;
+      border: 1px solid #3a4a6f;
+      background-color: #2e3e5d;
+      color: #e0e0e0;
+    }
+
+    .inline-form {
+      display: flex;
+      gap: 5px;
+      margin-bottom: 10px;
+    }
+
+    .inline-form input[type=text],
+    .inline-form select {
+      flex: 1;
+    }
+
+    .hint {
+      font-size: 0.9em;
+      color: #aaa;
+      margin-bottom: 8px;
+    }
+
+    .radio-inline {
+      display: inline-block;
+      margin-right: 15px;
+    }
+
+    button {
+      background-color: #3a4a6f;
+      color: #e0e0e0;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    button:hover {
+      background-color: #50628b;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      margin: 0 5px;
+    }
+
+    .field label {
+      font-size: 0.75rem;
+      color: #666;
+      margin-bottom: 2px;
+    }
+  </style>
+<script>
+  let already_agg = false;
+
+  function toggleAggregateFields() {
+    const isAgg = document.querySelector('input[name="is_aggregate"]:checked').value === "true";
+    document.getElementById("aggregate-setup-extra").style.display = isAgg ? "block" : "none";
+
+    if (isAgg) {
+      forceAggregate();
+    } else {
+      const container = document.getElementById("setup-commands-container");
+
+      // remove the aggregate dummy row
+      const aggLine = container.querySelector('.inline-form[data-agg="true"]');
+      if (aggLine) container.removeChild(aggLine);
+
+      // remove all extra setup commands
+      container.querySelectorAll('.inline-form[data-extra-agg="true"]').forEach(el => el.remove());
+
+      already_agg = false;
+    }
+
+    syncAggregateName();
+  }
+
+  function forceAggregate() {
+    const container = document.getElementById("setup-commands-container");
+    if (already_agg) return;
+    already_agg = true;
+
+    const div = document.createElement("div");
+    div.className = "inline-form";
+    div.dataset.agg = "true";
+
+    div.innerHTML = `
+      <div class="field">
+        <label>Command</label>
+        <input type="text" value="scoreboard objectives add" readonly>
+      </div>
+      <div class="field">
+        <label>Aggregate Name</label>
+        <input type="text" name="aggregate_obj_name" readonly>
+      </div>
+      <div class="field">
+        <label>Type</label>
+        <input type="text" value="dummy" readonly>
+      </div>
+    `;
+
+    container.appendChild(div);
+
+    // immediately sync with the main input
+    syncAggregateName();
+  }
+
+  function addSetupCommand() {
+    const isAgg = document.querySelector('input[name="is_aggregate"]:checked').value === "true";
+    if (!isAgg) return;
+
+    const container = document.getElementById("setup-commands-container");
+    const div = document.createElement("div");
+    div.className = "inline-form";
+    div.dataset.extraAgg = "true";
+
+    div.innerHTML = `
+      <div class="field">
+        <label>Command</label>
+        <input type="text" value="scoreboard objectives add" readonly>
+      </div>
+      <div class="field">
+        <label>Custom Name</label>
+        <input type="text" name="setup_obj_name[]" pattern="[a-zA-Z]+" required>
+      </div>
+      <div class="field">
+        <label>Namespace</label>
+        <input type="text" value="minecraft" readonly>
+      </div>
+      <div class="field">
+        <label>Action</label>
+        <select name="setup_action[]">
+          <option value="custom">custom</option>
+          <option value="mined">mined</option>
+          <option value="broken">broken</option>
+          <option value="crafted">crafted</option>
+          <option value="used">used</option>
+          <option value="picked_up">picked_up</option>
+          <option value="dropped">dropped</option>
+          <option value="killed">killed</option>
+          <option value="killed_by">killed_by</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Namespace</label>
+        <input type="text" value="minecraft" readonly>
+      </div>
+      <div class="field">
+        <label>Item/Entity</label>
+        <input type="text" name="setup_item[]" pattern="[a-z_]+" required>
+      </div>
+      <button type="button" onclick="removeSetupCommand(this)">Remove</button>
+    `;
+
+    const aggLine = container.querySelector('.inline-form[data-agg="true"]');
+    if (aggLine) {
+      container.insertBefore(div, aggLine);
+    } else {
+      container.appendChild(div);
+    }
+  }
+
+  function removeSetupCommand(button) {
+    const row = button.parentElement;
+    row.remove();
+  }
+
+  // 🔑 Sync function: keeps aggregate/custom names aligned with the overall input
+  function syncAggregateName() {
+    const overallInput = document.querySelector('input[name="aggregate_objective"]');
+    if (!overallInput) return;
+
+    const isAgg = document.querySelector('input[name="is_aggregate"]:checked').value === "true";
+    const newName = overallInput.value;
+
+    if (isAgg) {
+      const aggInput = document.querySelector('input[name="aggregate_obj_name"]');
+      if (aggInput) aggInput.value = newName;
+    } else {
+      const firstCustom = document.querySelector('input[name="setup_obj_name[]"]');
+      if (firstCustom) firstCustom.value = newName;
+    }
+  }
+
+  window.addEventListener("DOMContentLoaded", () => {
+    const container = document.getElementById("setup-commands-container");
+    const div = document.createElement("div");
+    div.className = "inline-form";
+    div.innerHTML = `
+      <div class="field">
+        <label>Command</label>
+        <input type="text" value="scoreboard objectives add" readonly>
+      </div>
+      <div class="field">
+        <label>Custom Name</label>
+        <input type="text" name="setup_obj_name[]" pattern="[a-zA-Z]+" required>
+      </div>
+      <div class="field">
+        <label>Namespace</label>
+        <input type="text" value="minecraft" readonly>
+      </div>
+      <div class="field">
+        <label>Action</label>
+        <select name="setup_action[]">
+          <option value="custom">custom</option>
+          <option value="mined">mined</option>
+          <option value="broken">broken</option>
+          <option value="crafted">crafted</option>
+          <option value="used">used</option>
+          <option value="picked_up">picked_up</option>
+          <option value="dropped">dropped</option>
+          <option value="killed">killed</option>
+          <option value="killed_by">killed_by</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Namespace</label>
+        <input type="text" value="minecraft" readonly>
+      </div>
+      <div class="field">
+        <label>Item/Entity/Block</label>
+        <input type="text" name="setup_item[]" pattern="[a-z_]+" required>
+      </div>
+    `;
+    container.appendChild(div);
+
+    // hook up syncing live
+    const overallInput = document.querySelector('input[name="aggregate_objective"]');
+    if (overallInput) {
+      overallInput.addEventListener("input", syncAggregateName);
+    }
+  });
+</script>
+</head>
+<body>
+  {% include 'navbar.html' %}
+
+  <div class="container">
+    <h1>Create Event JSON</h1>
+    <form id="event-form" method="POST">
+      <!-- Event Info -->
+      <fieldset>
+        <legend>Event Info</legend>
+
+        <label>Event Name
+          <input type="text" name="name" required>
+        </label>
+
+        <label>Event Description
+          <textarea name="description" rows="4" required></textarea>
+        </label>
+
+        <p class="hint">If your event objective will be comprised of multiple objectives tick "True" here.</p>
+        <label>Uses Multiple Objectives?</label>
+        <div class="radio-inline">
+          <input type="radio" name="is_aggregate" value="true" onchange="toggleAggregateFields(),forceAggregate()"> True
+        </div>
+        <div class="radio-inline">
+          <input type="radio" name="is_aggregate" value="false" onchange="toggleAggregateFields()" checked> False
+        </div>
+
+        <p class="hint">This will display as "ShibuiKaleb is in the lead with 24 < Score Text >."</p>
+        <label>Score Text
+          <input type="text" name="score_text">
+        </label>
+
+        <p class="hint">Use CamelCase, no spaces and not special characters. For example: LogsCollected</p>
+        <label>Overall Objective Name
+          <input type="text" name="aggregate_objective" pattern="[a-zA-Z]+" required>
+        </label>
+      </fieldset>
+
+      <!-- Commands -->
+      <fieldset>
+        <legend>Commands</legend>
+        <h3>Setup Commands</h3>
+        <div id="setup-commands-container"></div>
+        <button type="button" onclick="addSetupCommand()">Add Setup Command</button>
+
+        <div id="aggregate-setup-extra" style="display:none;">
+        </div> 
+      </fieldset>
+
+      <!-- Sidebar -->
+      <fieldset>
+        <legend>Sidebar</legend>
+        <label>Display Name
+          <input type="text" name="sidebar_display">
+        </label>
+        <label>Color
+          <select name="sidebar_color">
+            <option>black</option><option>dark_blue</option><option>dark_green</option>
+            <option>dark_aqua</option><option>dark_red</option><option>dark_purple</option>
+            <option>gold</option><option>gray</option><option>dark_gray</option>
+            <option>blue</option><option>green</option><option>aqua</option>
+            <option>red</option><option>light_purple</option><option>yellow</option><option>white</option>
+          </select>
+        </label>
+        <label>Bold?
+          <div class="radio-inline"><input type="radio" name="sidebar_bold" value="true"> True</div>
+          <div class="radio-inline"><input type="radio" name="sidebar_bold" value="false" checked> False</div>
+        </label>
+        <label>Duration (seconds)
+          <input type="text" name="sidebar_duration" value="15">
+        </label>
+      </fieldset>
+
+      <!-- Rewards -->
+      <fieldset>
+        <legend>Reward</legend>
+        <label>Reward Command
+          <input type="text" name="reward_cmd">
+        </label>
+        <label>Reward Name
+          <input type="text" name="reward_name">
+        </label>
+      </fieldset>
+
+      <button type="submit">Save Event JSON</button>
+    </form>
+  </div>
+
+</body>
+</html>
