@@ -73,6 +73,23 @@ class db_manager():
         return result
 
 
+    def db_insert(self, query):
+        result = None
+        
+        try:
+            with self.db_connect() as db_conn:
+                cursor = db_conn.cursor()
+                cursor.execute(query)
+                result = cursor.fetchall()
+                cursor.close()
+                db_conn.commit()
+        
+        except Exception as e:
+            print(f"Failed to insert: {e}")
+
+        return result
+
+
     def db_backup(self, backup_dir) -> bool:
 
         backup_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")

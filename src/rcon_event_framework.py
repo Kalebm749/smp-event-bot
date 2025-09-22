@@ -4,9 +4,10 @@ import time
 import sys
 import os
 from mcrcon import MCRcon # type: ignore
-from datetime import datetime
+from datetime import datetime, timezone
 from dotenv import load_dotenv
 import re
+import sql_calendar
 
 # LOAD CONFIG
 load_dotenv()
@@ -14,31 +15,27 @@ rcon_host = os.getenv("RCON_HOST")
 rcon_port = int(os.getenv("RCON_PORT"))
 rcon_pass = os.getenv("RCON_PASS")
 events_path = os.getenv("EVENTS_JSON_PATH")
-logs_path = os.getenv("LOGS_PATH")
-
-
 
 def load_json(event_file):
     with open(event_file, "r") as f:
         event_data = json.load(f)
-
     return event_data
-
 
 def escape_mc_string(text):
     return text.replace("\\", "\\\\").replace('"', '\\"')
 
-
-def write_to_log_file(result):
-    log_file_path = f'{logs_path}event_logs.txt'
-
-    with open (log_file_path, "a") as f:
-        f.write(f"{result}\n")
-
+def log_to_sql(message, level="INFO"):
+    """Log to SQLite database with proper UTC timestamp format"""
+    try:
+        # Format timestamp to match schema requirements (YYYY-MM-DDTHH:MM:SSZ)
+        timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+        sql_calendar.log_message_with_timestamp(message, level, timestamp)
+    except Exception as e:
+        # Fallback to print if SQL logging fails
+        print(f"SQL logging failed: {e} - Message: {message}")
 
 def mcrcon_wrapper(cmds):
-
-    #If cmds is a single string convert it to a list
+    """Execute RCON commands with error handling and logging"""
     if isinstance(cmds, str):
         cmds = [cmds]
 
@@ -49,422 +46,453 @@ def mcrcon_wrapper(cmds):
             for cmd in cmds:
                 result = mcr.command(cmd)
                 cmd_results.append(result)
+                log_to_sql(f"RCON command executed: {cmd}")
         return cmd_results
-    except:
+    except Exception as e:
+        error_msg = f"MCRCON error: {e}"
+        log_to_sql(error_msg, "ERROR")
         for cmd in cmds:
-            write_to_log_file(f"MCRCON error with command {cmd}")
-
+            log_to_sql(f"Failed RCON command: {cmd}", "ERROR")
+        return []
 
 def get_players():
-    
+    """Get list of tracked players from scoreboard"""
     player_list_cmd = "scoreboard players list"
-
     results = mcrcon_wrapper(player_list_cmd)
-    write_to_log_file(f"Found the following players {results}")
+    
+    if not results:
+        log_to_sql("No results from player list command", "WARN")
+        return []
+    
+    log_to_sql(f"Player list query result: {results}")
 
     match = re.search(r"There are \d+ tracked entity/entities: (.+)", results[0])
     if match:
-        return match.group(1).split(", ")
+        players = match.group(1).split(", ")
+        log_to_sql(f"Found tracked players: {players}")
+        return players
     else:
-        write_to_log_file(f"Could not find any tracked players in cmds '{player_list_cmd}'")
+        log_to_sql("Could not parse tracked players from scoreboard", "WARN")
+        return []
 
-    
 def start_event(event_data):
+    """Start an event with announcements and setup commands"""
+    log_to_sql(f"Starting event: {event_data.get('name', 'Unknown')}")
 
-    # Grab the event start text and format it
+    # Event start announcement
     event_start_text = f"The {event_data['name']} event is starting"
     json_start_text = {"text": event_start_text, "color": "gold"}
     display_title_text = f"tellraw @a {json.dumps(json_start_text)}"
 
-    # Grab the event description text and format it
+    # Event description
     event_description_text = f"{event_data['description']}"
     json_desc_text = {"text": event_description_text, "color": "aqua"}
     display_description_text = f"tellraw @a {json.dumps(json_desc_text)}"
 
-    # Display the event start text on the server
+    # Display start text
     result_start_text = mcrcon_wrapper(display_title_text)
-    write_to_log_file(f"Attempted to start the event. Got response {result_start_text}")
+    log_to_sql(f"Event start announcement sent with result: {result_start_text}")
 
-    # Play the event start bells 9 times when the event starts
+    # Play event start bells
     bells_command = 'execute as @a at @s run playsound minecraft:block.bell.use master @s ~ ~ ~ 100'
     for i in range(9):
-        bell_sound_result = mcrcon_wrapper(bells_command)
-        write_to_log_file(f"Played event start bell sound. Got response {bell_sound_result}")
+        bell_result = mcrcon_wrapper(bells_command)
+        log_to_sql(f"Bell sound {i+1}/9 played")
         time.sleep(0.25)
 
-    # Display the event description text on the server
-    result_description_text = mcrcon_wrapper(display_description_text)
-    write_to_log_file(f"Attempted to display the event description. Got response {result_description_text}")
+    # Display description
+    result_description = mcrcon_wrapper(display_description_text)
+    log_to_sql(f"Event description displayed with result: {result_description}")
 
-    # Play the wither.death event start sound
-    wither_sounds_command = 'execute as @a at @s run playsound minecraft:entity.wither.death master @s ~ ~ ~ 100'
-    wither_sound_result = mcrcon_wrapper(wither_sounds_command)
-    write_to_log_file(f"Played event start wither sound. Got response {wither_sound_result}")
+    # Play wither death sound
+    wither_sound_cmd = 'execute as @a at @s run playsound minecraft:entity.wither.death master @s ~ ~ ~ 100'
+    wither_result = mcrcon_wrapper(wither_sound_cmd)
+    log_to_sql(f"Wither sound played with result: {wither_result}")
 
-    # Run the start-up commands
+    # Execute setup commands
     try:
-        event_setup_commands = event_data["commands"]["setup"]
-        for cmd in event_setup_commands:
+        setup_commands = event_data["commands"]["setup"]
+        for cmd in setup_commands:
             cmd_result = mcrcon_wrapper(cmd)
-            write_to_log_file(f"Sent setup cmd: {cmd}")
-            write_to_log_file(f"Got result: {cmd_result}")
-    except:
-        write_to_log_file(f"Failed to execute the event setup commands. Check event JSON formatting.")
+            log_to_sql(f"Setup command executed: {cmd} - Result: {cmd_result}")
+    except KeyError:
+        log_to_sql("No setup commands found in event JSON", "WARN")
+    except Exception as e:
+        log_to_sql(f"Error executing setup commands: {e}", "ERROR")
 
-    write_to_log_file("✅ Event Setup Completed")
+    log_to_sql("Event setup completed successfully")
     print("✅ Event Setup Completed")
 
-
-#Runs all of the aggregate commands for all players
 def aggregate_scores(event_data):
-    #Grab a list of all the players
+    """Aggregate player scores for events that require it"""
     player_list = get_players()
-    if player_list:
-        write_to_log_file(f"Found the following tracked players for aggregate_scores {player_list}")
+    
+    if not player_list:
+        log_to_sql("No tracked players found for score aggregation", "WARN")
+        print("No tracked players. Nothing to aggregate.")
+        return
 
-        #Grabs the aggregate objective
-        try:
-            agg_obj = event_data["aggregate_objective"]
-        except:
-            write_to_log_file("Failed to pull the aggregate objective. Check event JSON format")
+    log_to_sql(f"Aggregating scores for players: {player_list}")
 
-        #Grab the objectives to aggregate on
-        try:
-            objectives = event_data["commands"]["aggregate"]
-        except:
-            write_to_log_file("Failed to pull the list of objectives to aggregate. Check event JSON format")
+    try:
+        agg_obj = event_data["aggregate_objective"]
+        objectives = event_data["commands"]["aggregate"]
+        is_aggregate_event = event_data.get("is_aggregate", False)
+    except KeyError as e:
+        log_to_sql(f"Missing required field for aggregation: {e}", "ERROR")
+        return
 
-        #Try to check if this is an aggregate style event
-        try:
-            is_aggregate_event = event_data["is_aggregate"]
-        except:
-            write_to_log_file("Failed to check if this is an aggregate event. Check JSON format")
+    if not is_aggregate_event:
+        log_to_sql("Event does not require score aggregation")
+        return
 
-        if is_aggregate_event:
-            for player in player_list:
-                # Set aggregate scoreboard objective to zero
-                aggregate_to_zero = f"scoreboard players set {player} {agg_obj} 0"
-                result_to_zero = mcrcon_wrapper(aggregate_to_zero)
-                write_to_log_file(f"Got the following result setting {agg_obj} to 0 for {player}: {result_to_zero}")
+    for player in player_list:
+        # Reset aggregate score to zero
+        reset_cmd = f"scoreboard players set {player} {agg_obj} 0"
+        reset_result = mcrcon_wrapper(reset_cmd)
+        log_to_sql(f"Reset {agg_obj} to 0 for {player}: {reset_result}")
 
-                for objective in objectives:
-                    aggregate_scores_additive_cmd = f"scoreboard players operation {player} {agg_obj} += {player} {objective}"
-                    additive_result = mcrcon_wrapper(aggregate_scores_additive_cmd)
-                    write_to_log_file(f"Got the following result aggregating {agg_obj} with {objective} for {player}: {additive_result}")
-        else:
-            write_to_log_file("Scores do not need aggregating for this event")
-    else:
-        print("There were no tracked players. Nothing to aggregate.")
-        write_to_log_file(f"✅ Calculated Aggregate Scores")
+        # Aggregate each objective
+        for objective in objectives:
+            agg_cmd = f"scoreboard players operation {player} {agg_obj} += {player} {objective}"
+            agg_result = mcrcon_wrapper(agg_cmd)
+            log_to_sql(f"Aggregated {objective} into {agg_obj} for {player}: {agg_result}")
 
+    log_to_sql("Score aggregation completed")
     print("✅ Calculated Aggregate Scores")
-    write_to_log_file(f"✅ Calculated Aggregate Scores")
 
-
-#Looks through the scoreboard objectives to find the leaders
 def find_leaders(event_data, silent=False):
+    """Find the leading players and optionally announce them"""
     player_list = get_players()
+    
+    if not player_list:
+        log_to_sql("No players to check for leaders", "WARN")
+        return [], 0
 
     try:
         main_obj = event_data["aggregate_objective"]
-    except:
-        write_to_log_file("Failed to pull the aggregate objective. Check event JSON format")
+    except KeyError:
+        log_to_sql("Missing aggregate_objective in event data", "ERROR")
+        return [], 0
 
     leaders = []
     leading_score = 0
 
-    if player_list:
-        for player in player_list:
-            get_player_aggregate_score_cmd = f"scoreboard players get {player} {main_obj}"
-            aggregate_score_result = mcrcon_wrapper(get_player_aggregate_score_cmd)
-            write_to_log_file(f"Checked score for {player} got {aggregate_score_result}")
+    log_to_sql(f"Checking scores for objective: {main_obj}")
 
-            #Search the aggregate score result for the numerical value
-            match = re.search(r"has (\d+)", aggregate_score_result[0])
-            if match:
-                number = int(match.group(1))
-                if not leaders:
-                    leaders.append(player)
-                    leading_score = number
-                elif number == leading_score:
-                    leaders.append(player)
-                elif number > leading_score:
-                    leaders = []
-                    leaders.append(player)
-                    leading_score = number
-            else:
-                write_to_log_file(f"Failed parse the score for {player}")
+    for player in player_list:
+        score_cmd = f"scoreboard players get {player} {main_obj}"
+        score_result = mcrcon_wrapper(score_cmd)
+        log_to_sql(f"Score check for {player}: {score_result}")
 
-        #Tell the server whos winning
-        player_string = ""
-        for player in leaders:
-            player_string += f"{player}, "
-            if len(leaders) == 1:
-                player_string = player
+        if not score_result:
+            continue
 
-        if player_string.endswith(", "):
-            player_string = player_string[:-2]
-
-        write_to_log_file(f"Found the following leaders {player_string} with score {leading_score}")
-
-        if len(leaders) == 1:
-            player_string += f" is leading the pack for the {event_data["name"]} event with a score of {leading_score} {event_data["score_text"]}!"
+        # Parse score from result
+        match = re.search(r"has (\d+)", score_result[0])
+        if match:
+            score = int(match.group(1))
+            
+            if not leaders or score > leading_score:
+                leaders = [player]
+                leading_score = score
+            elif score == leading_score:
+                leaders.append(player)
         else:
-            player_string += f" are tied for first in the {event_data["name"]} event with scores of {leading_score} {event_data["score_text"]}!"
+            log_to_sql(f"Could not parse score for {player} from: {score_result[0]}", "WARN")
 
-        #If we want to actually send the message
+    # Format leader announcement
+    if leaders:
+        leader_names = ", ".join(leaders)
+        log_to_sql(f"Current leaders: {leader_names} with score {leading_score}")
+
         if not silent:
-            leader_string = {"text": player_string, "color": "gold"}
-            leader_cmd = f"tellraw @a {json.dumps(leader_string)}"
-            result_display_leader_server = mcrcon_wrapper(leader_cmd)
-            write_to_log_file(f"Displayed leaders {leader_string} with result: {result_display_leader_server}")
+            if len(leaders) == 1:
+                message = f"{leader_names} is leading the {event_data['name']} event with {leading_score} {event_data.get('score_text', 'points')}!"
+            else:
+                message = f"{leader_names} are tied for first in the {event_data['name']} event with {leading_score} {event_data.get('score_text', 'points')}!"
+
+            announcement = {"text": message, "color": "gold"}
+            announce_cmd = f"tellraw @a {json.dumps(announcement)}"
+            announce_result = mcrcon_wrapper(announce_cmd)
+            log_to_sql(f"Leader announcement sent: {announce_result}")
     else:
-        print("No players were tracked!")
-        write_to_log_file("No players were tracked!")
+        log_to_sql("No leaders found")
 
-    print("✅ Displayed leaders!")
-    write_to_log_file("✅ Displayed leaders!")
-
+    print("✅ Leaders determined!")
     return leaders, leading_score
 
-
-# Displays the scordboard for a set amount of time specified in the event_data
 def display_scoreboard(event_data):
-
-    #What is being tracked, how long should it be displayed, should it be bold, what color?
+    """Display the event scoreboard for a specified duration"""
     try:
-        get_tracked_object = event_data["aggregate_objective"]
-        scoreboard_display_name = event_data["sidebar"]["displayName"]
-        scoreboard_duration = event_data["sidebar"]["duration"]
-        scoreboard_bold = event_data["sidebar"]["bold"]
-        scoreboard_color = event_data["sidebar"]["color"]
-    except:
-        write_to_log_file(f"Failed to parse scoreboard options. Check event JSON format.")
+        tracked_obj = event_data["aggregate_objective"]
+        display_name = event_data["sidebar"]["displayName"]
+        duration = event_data["sidebar"]["duration"]
+        bold = event_data["sidebar"]["bold"]
+        color = event_data["sidebar"]["color"]
+    except KeyError as e:
+        log_to_sql(f"Missing scoreboard configuration: {e}", "ERROR")
+        return
 
-    #Create the scoreboard
-    create_tracked_obj_scoreboard = f'scoreboard objectives setdisplay sidebar {get_tracked_object}'
-    result_create_scordboard = mcrcon_wrapper(create_tracked_obj_scoreboard)
-    write_to_log_file(f"Created event scordboard with result: {result_create_scordboard}")
+    log_to_sql(f"Displaying scoreboard for {duration} seconds")
 
-    #Color and text the scoreboard
-    if scoreboard_bold:
-        scoreboard_decor = {"text":str(scoreboard_display_name),
-                            "color":str(scoreboard_color),
-                            "bold":True}
-    else:
-        scoreboard_decor = {"text":str(scoreboard_display_name),
-                            "color":str(scoreboard_color)}
-        
-    modify_scoreboard_cmd = f"scoreboard objectives modify {get_tracked_object} displayname {json.dumps(scoreboard_decor, ensure_ascii=False)}"
-    result_scoreboard_modify = mcrcon_wrapper(modify_scoreboard_cmd)
-    write_to_log_file(f"Modified the scoreboard with result: {result_scoreboard_modify}")
+    # Set up scoreboard display
+    display_cmd = f'scoreboard objectives setdisplay sidebar {tracked_obj}'
+    display_result = mcrcon_wrapper(display_cmd)
+    log_to_sql(f"Scoreboard display set: {display_result}")
 
-    #Display the scoreboard for the time specified in event json
-    write_to_log_file(f"Sleeping to display the scoreboard for {scoreboard_duration} seconds")
-    time.sleep(scoreboard_duration)
-
-    #Remove the scoreboard after sleeping
-    score_board_cleanup_cmd = "scoreboard objectives setdisplay sidebar"
-    result_cleanup_scoreboard = mcrcon_wrapper(score_board_cleanup_cmd)
-    write_to_log_file(f"Cleaned up the scoreboard with result: {result_cleanup_scoreboard}")
-
-    write_to_log_file("✅ Scoreboard was displayed")
-    print("✅ Scoreboard was displayed")
-
-
-# Remove anything related to the event
-def cleanup_objs(event_data):
-
-    try:
-        cleanup_objectives = event_data["commands"]["cleanup"]
-    except:
-        write_to_log_file(f"Error couldn't parse cleanup objectives. Check Event JSON format.")
-
-    for objective in cleanup_objectives:
-        cleanup_objective_cmd = f'scoreboard objectives remove {objective}'
-        result_cleanup = mcrcon_wrapper(cleanup_objective_cmd)
-        write_to_log_file(f"Cleaned up objective {objective} with result: {result_cleanup}")
-
-    print("✅ Event has been cleaned up!")
-    write_to_log_file(f"✅ Event has been cleaned up!")
-
-
-def write_event_winner(event_data, leaders, final_score):
- 
-    # Format filename: Event-Name-MM-DD-YYYY.json
-    date_str = datetime.now().strftime("%m-%d-%Y")
-    safe_event_name = event_data['name'].replace(" ", "-")
-    filename = f"{safe_event_name}-{date_str}.json"
-    filepath = f"{logs_path}{filename}"
-    
-    # Prepare JSON data
-    output_data = {
-        "Event": event_data['name'],
-        "Date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "Description": event_data.get("description", ""),
-        "Leaders": leaders,
-        "FinalScore": final_score
+    # Format scoreboard title
+    title_format = {
+        "text": str(display_name),
+        "color": str(color),
+        "bold": bool(bold)
     }
     
-    # Write JSON file
+    modify_cmd = f"scoreboard objectives modify {tracked_obj} displayname {json.dumps(title_format)}"
+    modify_result = mcrcon_wrapper(modify_cmd)
+    log_to_sql(f"Scoreboard title modified: {modify_result}")
+
+    # Display for specified duration
+    time.sleep(duration)
+
+    # Clear scoreboard
+    clear_cmd = "scoreboard objectives setdisplay sidebar"
+    clear_result = mcrcon_wrapper(clear_cmd)
+    log_to_sql(f"Scoreboard cleared: {clear_result}")
+
+    log_to_sql("Scoreboard display completed")
+    print("✅ Scoreboard was displayed")
+
+def cleanup_objs(event_data):
+    """Clean up scoreboard objectives after event"""
     try:
-        with open(filepath, "w") as f:
-            json.dump(output_data, f, indent=2)
-        print(f"✅ Event results saved to {filepath}")
+        cleanup_objectives = event_data["commands"]["cleanup"]
+    except KeyError:
+        log_to_sql("No cleanup objectives specified", "WARN")
+        return
+
+    log_to_sql(f"Cleaning up objectives: {cleanup_objectives}")
+
+    for objective in cleanup_objectives:
+        cleanup_cmd = f'scoreboard objectives remove {objective}'
+        cleanup_result = mcrcon_wrapper(cleanup_cmd)
+        log_to_sql(f"Cleaned up objective {objective}: {cleanup_result}")
+
+    log_to_sql("Event cleanup completed")
+    print("✅ Event has been cleaned up!")
+
+def update_scoreboard_display_time(event_id):
+    """Update the last scoreboard display time with proper UTC format"""
+    try:
+        timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+        sql_calendar.update_scoreboard_time(event_id, timestamp)
+        log_to_sql(f"Updated scoreboard display time for event {event_id}")
     except Exception as e:
-        print(f"❌ Failed to save event results: {e}")
+        log_to_sql(f"Error updating scoreboard time: {e}", "ERROR")
 
-#Give the winnig players their reward item!
-def give_reward_item(winners, event_data):
-
-    get_online_players_cmd = "list"
-    result_get_online_players = mcrcon_wrapper(get_online_players_cmd)
-    write_to_log_file(f"Queried for online players with result: {result_get_online_players}")
-
-    # Regex search for just the player list
-    get_player_pattern = r"online:\s*(.+)$"
-    match = re.search(get_player_pattern, result_get_online_players[0])
-    if match:
-        online_players = [p.strip() for p in match.group(1).split(",")]
-    else:
-        write_to_log_file(f"Couldn't match the online players list with result: {result_get_online_players}")
-
-    # Make a list of winners who are also online, do it for offline player too
-    online_winners = [player for player in online_players if player in winners]
-    offline_winners = [player for player in winners if player not in online_players]
-    write_to_log_file(f"Found online players: {online_winners}")
-
-    for winner in winners:
-        if winner in online_winners:
-            winning_text_event = f'tellraw {winner} "You have won the {event_data["name"]} event!"'
-            winning_text_prize = f'tellraw {winner} "You will be recieving your prize in..."'
-            winnig_text_countdown_3 = f'tellraw {winner} "3!"'
-            winnig_text_countdown_2 = f'tellraw {winner} "2!"'
-            winnig_text_countdown_1 = f'tellraw {winner} "1!"'
-            
-            # Get winner item
-            item_gen_str = f'give {winner} ' + event_data["reward_cmd"]
-            item_gen_str = item_gen_str.replace("'", '"')
-
-            # Item notification
-            item_name_text = f"You have been given the legendary {event_data["reward_name"]}!"
-            item_json = {"text": item_name_text, "color": "light_purple"}
-            item_won_text = f'tellraw {winner} {json.dumps(item_json)}'
-
-            result_winning_event = mcrcon_wrapper(winning_text_event)
-            time.sleep(1)
-            result_winning_prize = mcrcon_wrapper(winning_text_prize)
-            time.sleep(1)
-            result_winning_countdown_3 = mcrcon_wrapper(winnig_text_countdown_3)
-            time.sleep(1)
-            result_winning_countdown_2 = mcrcon_wrapper(winnig_text_countdown_2)
-            time.sleep(1)
-            result_winning_countdown_1 = mcrcon_wrapper(winnig_text_countdown_1 )
-            time.sleep(1)
-            result_give_item = mcrcon_wrapper(item_gen_str)
-            result_won_text = mcrcon_wrapper(item_won_text)
-
-            write_to_log_file(f'Displayed winning event text to {winner} with result: {result_winning_event}')
-            write_to_log_file(f'Displayed winning prize text to {winner} with result: {result_winning_prize}')
-            write_to_log_file(f'Displayed winning count3 text to {winner} with result: {result_winning_countdown_3}')
-            write_to_log_file(f'Displayed winning count2 text to {winner} with result: {result_winning_countdown_2}')
-            write_to_log_file(f'Displayed winning count1 text to {winner} with result: {result_winning_countdown_1}')
-            write_to_log_file(f'Gave item to {winner} with result: {result_give_item}')
-            write_to_log_file(f'Displayed item recieved text to {winner} with result: {result_won_text}')
-
-        else:
-            pass
-            #TODO: Handle notifying via discord bot when winner isn't online
-
-    
-    print(f"✅ Distrubted items to online winners and notified admins that {offline_winners} are offline!")
-    write_to_log_file(f"✅ Distrubted items to online winners and notified admins that {offline_winners} are offline!")
-
-
-#Displays the closing ceremony particles, sound and text and distributes items
-def closing_ceremony(event_data):
-
-    # Find the winner(s) and their score without displaying the chat message
-    leader_list, leader_score = find_leaders(event_data, silent=True)
-
-    #Event end text
-    event_end_text = f"The {event_data['name']} event has ended!"
-    json_end_text = {"text": event_end_text, "color": "gold"}
-    end_text_cmd = f"tellraw @a {json.dumps(json_end_text)}"
-
-    # Closing ceremony particles
-    firework_particle_cmd = 'execute as @a at @s run particle minecraft:firework ~ ~ ~ 1 1 1 0.2 100 force'
-    firework_sound_cmd = 'execute as @a at @s run playsound minecraft:entity.firework_rocket.twinkle master @s ~ ~ ~ 100'
-
+def save_winners_to_sql(event_data, leaders, final_score):
+    """Save event winners directly to SQLite database"""
     try:
-        event_score_text = event_data["score_text"]
-    except:
-        write_to_log_file("Error. Couldn't get event score_text. Check event JSON.")
+        # Get event ID by unique name
+        unique_name = event_data.get('unique_event_name')
+        if not unique_name:
+            log_to_sql("No unique_event_name found in event data", "ERROR")
+            return
+            
+        event_id = sql_calendar.get_event_id_by_unique_name(unique_name)
+        if not event_id:
+            log_to_sql(f"Could not find event ID for: {unique_name}", "ERROR")
+            return
 
-    # Event winner text
-    winner_str = ", ".join(leader_list) + f" won the event with {leader_score} {event_score_text}"
-    winner_str_json = {"text": winner_str, "color": "green"}
-    winner_cmd = f"tellraw @a {json.dumps(winner_str_json)}"
+        # Get online players to determine who was online
+        online_cmd = "list"
+        online_result = mcrcon_wrapper(online_cmd)
+        online_players = []
+        
+        if online_result:
+            online_match = re.search(r"online:\s*(.+)$", online_result[0])
+            if online_match:
+                online_players = [p.strip() for p in online_match.group(1).split(",")]
 
-    # Closing ceremony song
-    ceremony_song_cmd = f'execute as @a at @s run playsound minecraft:music_disc.lava_chicken master @s ~ ~ ~ 100'
-    ceremony_song_stop_cmd = 'stopsound @a'
+        # Save each winner
+        for winner in leaders:
+            was_online = winner in online_players
+            sql_calendar.insert_winner(event_id, winner, final_score, was_online)
+            log_to_sql(f"Saved winner: {winner} (online: {was_online})")
 
-    # Display event end text
-    result_event_end = mcrcon_wrapper(end_text_cmd)
-    write_to_log_file(f"Sent closing ceremony text to server with result {result_event_end}")
+        log_to_sql(f"Saved {len(leaders)} winners for event {unique_name}")
+        print(f"✅ Event results saved: {', '.join(leaders)} with score {final_score}")
+        
+    except Exception as e:
+        log_to_sql(f"Error saving winners to database: {e}", "ERROR")
 
-    #Display the firework effects
+def give_reward_item(winners, event_data):
+    """Give reward items to online winners"""
+    if not winners:
+        log_to_sql("No winners to reward")
+        return
+
+    # Get online players
+    online_cmd = "list"
+    online_result = mcrcon_wrapper(online_cmd)
+    
+    if not online_result:
+        log_to_sql("Could not get online players list", "ERROR")
+        return
+
+    log_to_sql(f"Online players query result: {online_result}")
+
+    # Parse online players
+    online_match = re.search(r"online:\s*(.+)$", online_result[0])
+    if online_match:
+        online_players = [p.strip() for p in online_match.group(1).split(",")]
+    else:
+        log_to_sql("Could not parse online players list", "WARN")
+        online_players = []
+
+    online_winners = [player for player in winners if player in online_players]
+    offline_winners = [player for player in winners if player not in online_players]
+
+    log_to_sql(f"Online winners: {online_winners}, Offline winners: {offline_winners}")
+
+    for winner in online_winners:
+        try:
+            # Winner notification sequence
+            notifications = [
+                f'tellraw {winner} "You have won the {event_data["name"]} event!"',
+                f'tellraw {winner} "You will be receiving your prize in..."',
+                f'tellraw {winner} "3!"',
+                f'tellraw {winner} "2!"',
+                f'tellraw {winner} "1!"'
+            ]
+            
+            for notif in notifications:
+                mcrcon_wrapper(notif)
+                time.sleep(1)
+
+            # Give reward item
+            reward_cmd = f'give {winner} {event_data["reward_cmd"]}'
+            reward_cmd = reward_cmd.replace("'", '"')
+            reward_result = mcrcon_wrapper(reward_cmd)
+            log_to_sql(f"Gave reward to {winner}: {reward_result}")
+
+            # Item received notification
+            item_msg = f"You have been given the legendary {event_data['reward_name']}!"
+            item_json = {"text": item_msg, "color": "light_purple"}
+            item_cmd = f'tellraw {winner} {json.dumps(item_json)}'
+            mcrcon_wrapper(item_cmd)
+
+            log_to_sql(f"Reward sequence completed for {winner}")
+
+        except KeyError as e:
+            log_to_sql(f"Missing reward configuration: {e}", "ERROR")
+        except Exception as e:
+            log_to_sql(f"Error rewarding {winner}: {e}", "ERROR")
+
+    if offline_winners:
+        log_to_sql(f"Offline winners need manual reward: {offline_winners}", "WARN")
+
+    log_to_sql("Reward distribution completed")
+    print("✅ Distributed rewards to online winners!")
+
+def closing_ceremony(event_data):
+    """Execute closing ceremony with effects and winner announcements"""
+    log_to_sql("Starting closing ceremony")
+
+    # Find winners silently
+    leaders, final_score = find_leaders(event_data, silent=True)
+
+    # Event end announcement
+    end_text = f"The {event_data['name']} event has ended!"
+    end_json = {"text": end_text, "color": "gold"}
+    end_cmd = f"tellraw @a {json.dumps(end_json)}"
+    mcrcon_wrapper(end_cmd)
+
+    # Fireworks display
+    firework_particles = 'execute as @a at @s run particle minecraft:firework ~ ~ ~ 1 1 1 0.2 100 force'
+    firework_sounds = 'execute as @a at @s run playsound minecraft:entity.firework_rocket.twinkle master @s ~ ~ ~ 100'
+
+    log_to_sql("Playing fireworks display")
     for i in range(5):
-        particle_result = mcrcon_wrapper(firework_particle_cmd)
-        firework_sound_result = mcrcon_wrapper(firework_sound_cmd)
-        write_to_log_file(f"Displayed closing ceremony particles with result {particle_result}")
-        write_to_log_file(f"Displayed closing ceremony firework sounds with result {firework_sound_result}")
+        mcrcon_wrapper([firework_particles, firework_sounds])
         time.sleep(0.3)
 
-    # Display the winner(s)
-    result_display_winner = mcrcon_wrapper(winner_cmd)
-    write_to_log_file(f"Displayed the event winners with result {result_display_winner}")
+    # Winner announcement
+    if leaders:
+        winner_text = f"{', '.join(leaders)} won the event with {final_score} {event_data.get('score_text', 'points')}"
+        winner_json = {"text": winner_text, "color": "green"}
+        winner_cmd = f"tellraw @a {json.dumps(winner_json)}"
+        mcrcon_wrapper(winner_cmd)
+        log_to_sql(f"Winner announcement: {winner_text}")
 
-    # Play the closing ceremony song and show the scoreboard
-    ceremony_song_result = mcrcon_wrapper(ceremony_song_cmd)
-    write_to_log_file(f"Started the ceremony song with result {ceremony_song_result}")
+    # Ceremony music
+    music_cmd = 'execute as @a at @s run playsound minecraft:music_disc.lava_chicken master @s ~ ~ ~ 100'
+    mcrcon_wrapper(music_cmd)
+    log_to_sql("Started ceremony music")
+
+    # Display final scoreboard
     display_scoreboard(event_data)
     
-    # Stop the ceremony song
-    ceremony_song_stop_result = mcrcon_wrapper(ceremony_song_stop_cmd)
-    write_to_log_file(f"Stopped the ceremony song with result {ceremony_song_stop_result}")
+    # Stop music
+    stop_cmd = 'stopsound @a'
+    mcrcon_wrapper(stop_cmd)
+    log_to_sql("Stopped ceremony music")
 
-    #Give out the reward items to online players
-    give_reward_item(leader_list, event_data)
+    # Distribute rewards
+    give_reward_item(leaders, event_data)
 
-    #Write the event winner to event_results
-    write_event_winner(event_data, leader_list, leader_score)
+    # Save results to database
+    save_winners_to_sql(event_data, leaders, final_score)
+
+    log_to_sql("Closing ceremony completed")
 
 def run_event(action, json_file):
-    # Load the requested json file
+    """Main event runner function"""
+    log_to_sql(f"Running event action: {action} with file: {json_file}")
+    
+    # Load event data
     try:
         event_data = load_json(f'{events_path}{json_file}')
-    except:
-        print(f"❌ Failed to load data for {json_file}. Check event JSON file exists")
-        exit()
+        log_to_sql(f"Loaded event data for: {event_data.get('name', 'Unknown')}")
+    except Exception as e:
+        error_msg = f"Failed to load event JSON {json_file}: {e}"
+        log_to_sql(error_msg, "ERROR")
+        print(f"❌ {error_msg}")
+        sys.exit(1)
 
-    # Start the event
-    if action == "start":
-        start_event(event_data)
-    # Display the leaderboard for the event
-    elif action == "display":
-        aggregate_scores(event_data)
-        find_leaders(event_data)
-        display_scoreboard(event_data)
-    # Stop the event, distribute prizes, and clean up the server
-    elif action == "clean":
-        # Calculate scores for everyone one last time
-        aggregate_scores(event_data)
-        closing_ceremony(event_data)
-        cleanup_objs(event_data)
-    else:
-        print(f"Unknown action: {action}")
+    # Get event ID for database operations
+    unique_name = event_data.get('unique_event_name')
+    event_id = None
+    if unique_name:
+        event_id = sql_calendar.get_event_id_by_unique_name(unique_name)
+
+    # Execute requested action
+    try:
+        if action == "start":
+            start_event(event_data)
+        elif action == "display":
+            aggregate_scores(event_data)
+            find_leaders(event_data)
+            display_scoreboard(event_data)
+            # Update scoreboard display time
+            if event_id:
+                update_scoreboard_display_time(event_id)
+        elif action == "clean":
+            aggregate_scores(event_data)
+            closing_ceremony(event_data)
+            cleanup_objs(event_data)
+        else:
+            error_msg = f"Unknown action: {action}"
+            log_to_sql(error_msg, "ERROR")
+            print(f"❌ {error_msg}")
+            sys.exit(1)
+            
+        log_to_sql(f"Event action '{action}' completed successfully")
+        
+    except Exception as e:
+        error_msg = f"Error during {action} action: {e}"
+        log_to_sql(error_msg, "ERROR")
+        print(f"❌ {error_msg}")
         sys.exit(1)
 
 if __name__ == "__main__":
