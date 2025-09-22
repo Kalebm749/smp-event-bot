@@ -7,18 +7,33 @@ from datetime import datetime, timezone
 from functools import wraps
 import pytz
 import platform
+import sys
+
+# Add src directory to path for imports
+sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
+import sql_calendar
+from database_manager import db_manager
 
 load_dotenv()
 PASSWORD = os.getenv("ADMIN_PASSWORD")
 
 app = Flask(__name__)
-
 app.secret_key = os.getenv("SECRET_KEY", "supersecretkey")
 
-# Paths
+# Database paths
+DATABASE_FILE = os.getenv("DATABASE_FILE", "event_database.db")
+DATABASE_DIR = os.getenv("DATABASE_DIR", "./database/")
+DATABASE_SCHEMA = os.getenv("DATABASE_SCHEMA", "schema.sql")
+DATABASE_PATH = os.path.join(DATABASE_DIR, DATABASE_FILE)
+SCHEMA_PATH = os.path.join(DATABASE_DIR, DATABASE_SCHEMA)
+
+# Other paths
 EVENTS_JSON_PATH = os.path.join(".", "events", "events_json")
-CALENDAR_FILE = os.path.join(".", "events", "events_calendar", "event_calendar.json")
 LOGS_PATH = os.path.join(".", "logs")
+
+def get_db():
+    """Get database manager instance"""
+    return db_manager(DATABASE_PATH, SCHEMA_PATH)
 
 def start_event_handler():
     try:
@@ -47,10 +62,7 @@ def stop_event_handler():
         return False
 
 def is_event_handler_running():
-    """
-    Check if 'event_handler.py' is running.
-    Works on Linux and Windows.
-    """
+    """Check if 'event_handler.py' is running."""
     try:
         if platform.system() == "Windows":
             result = subprocess.run(
@@ -74,39 +86,90 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-# --- Load calendar ---
-def load_calendar():
-    if os.path.exists(CALENDAR_FILE):
-        with open(CALENDAR_FILE, "r") as f:
-            return json.load(f)
-    return []
+def load_events_from_db():
+    """Load events from SQLite database"""
+    try:
+        db = get_db()
+        query = """
+        SELECT id, unique_event_name, name, event_json, description, 
+               start_time, end_time, event_in_progress, event_started, 
+               event_over, last_scoreboard_time
+        FROM events 
+        ORDER BY start_time DESC
+        """
+        results = db.db_query(query)
+        
+        events = []
+        for row in results:
+            event = {
+                "id": row[0],
+                "unique_event_name": row[1],
+                "name": row[2],
+                "event_json": row[3],
+                "description": row[4],
+                "start": row[5],
+                "end": row[6],
+                "event_in_progress": bool(row[7]),
+                "event_started": bool(row[8]),
+                "event_over": bool(row[9]),
+                "last_scoreboard_time": row[10]
+            }
+            events.append(event)
+        
+        return events
+    except Exception as e:
+        print(f"Error loading events from database: {e}")
+        return []
 
-# --- Load event JSON files ---
 def load_event_files():
+    """Load event JSON files"""
     if os.path.exists(EVENTS_JSON_PATH):
         return [f for f in os.listdir(EVENTS_JSON_PATH) if f.endswith(".json")]
     return []
 
-# --- Load logs ---
-def load_logs():
-    if os.path.exists(LOGS_PATH):
-        return [f for f in os.listdir(LOGS_PATH) if f.endswith(".txt") or f.endswith(".json")]
-    return []
+def load_logs_from_db():
+    """Load recent logs from database"""
+    try:
+        db = get_db()
+        query = """
+        SELECT timestamp, message, log_level 
+        FROM logs 
+        ORDER BY timestamp DESC 
+        LIMIT 100
+        """
+        results = db.db_query(query)
+        
+        logs = []
+        for row in results:
+            logs.append({
+                "timestamp": row[0],
+                "message": row[1],
+                "log_level": row[2]
+            })
+        
+        return logs
+    except Exception as e:
+        print(f"Error loading logs from database: {e}")
+        return []
 
-# --- Helper to determine event status ---
 def get_event_status(event):
+    """Determine event status"""
     now = datetime.now(timezone.utc)
-    start = datetime.fromisoformat(event["start"])
-    end = datetime.fromisoformat(event["end"])
-    if start > now:
+    start = datetime.fromisoformat(event["start"].replace('Z', '+00:00'))
+    end = datetime.fromisoformat(event["end"].replace('Z', '+00:00'))
+    
+    if event.get("event_over"):
+        return "completed"
+    elif event.get("event_in_progress"):
+        return "ongoing"
+    elif start > now:
         return "future"
     elif start <= now <= end:
-        return "ongoing"
+        return "should_be_ongoing"
     else:
         return "past"
 
-# --- Routes ---
-
+# Routes
 @app.route("/")
 @login_required
 def index():
@@ -116,15 +179,11 @@ def index():
 def login():
     if request.method == "POST":
         password = request.form.get("password")
-        print(f"Entered password: {repr(password)}")
-        print(f"Expected password: {repr(PASSWORD)}")
         if password == PASSWORD:
             session["logged_in"] = True
-            print("Login successful")
             return redirect(url_for("index"))
         else:
-            print("Login failed")
-
+            flash("Invalid password")
     return render_template("login.html")
 
 @app.route("/logout")
@@ -136,21 +195,172 @@ def logout():
 @app.route("/api/calendar")
 @login_required
 def api_calendar():
-    events = load_calendar()
+    events = load_events_from_db()
     for e in events:
         e["status"] = get_event_status(e)
     return jsonify(events)
-
-@app.route("/api/event_handler/start", methods=["POST"])
-@login_required
-def api_start_event_handler():
-    success = start_event_handler()
-    return jsonify({"success": success, "status": "Running" if is_event_handler_running() else "Not Running"})
 
 @app.route("/event_monitor")
 @login_required
 def event_monitor():
     return render_template("event_monitor.html")
+
+@app.route("/database_viewer")
+@login_required
+def database_viewer():
+    """New database viewer page"""
+    return render_template("database_viewer.html")
+
+@app.route("/api/database/info")
+@login_required
+def api_database_info():
+    """Get database information"""
+    try:
+        db = get_db()
+        info = db.db_info()
+        
+        # Add file size info
+        if os.path.exists(DATABASE_PATH):
+            file_size = os.path.getsize(DATABASE_PATH)
+            info["size_bytes"] = file_size
+            info["size_mb"] = round(file_size / 1024 / 1024, 2)
+        
+        return jsonify(info)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/database/table/<table_name>")
+@login_required
+def api_table_data(table_name):
+    """Get data from a specific table"""
+    allowed_tables = ["events", "event_notifications", "logs", "event_winners"]
+    if table_name not in allowed_tables:
+        return jsonify({"error": "Table not allowed"}), 400
+    
+    try:
+        db = get_db()
+        limit = request.args.get("limit", 50, type=int)
+        offset = request.args.get("offset", 0, type=int)
+        
+        # Get total count
+        count_query = f"SELECT COUNT(*) FROM {table_name}"
+        count_result = db.db_query(count_query)
+        total = count_result[0][0] if count_result else 0
+        
+        # Get table data with pagination
+        query = f"SELECT * FROM {table_name} ORDER BY id DESC LIMIT {limit} OFFSET {offset}"
+        results = db.db_query(query)
+        
+        # Get column names
+        column_query = f"PRAGMA table_info({table_name})"
+        column_info = db.db_query(column_query)
+        columns = [col[1] for col in column_info]  # col[1] is the column name
+        
+        # Format results
+        rows = []
+        for row in results:
+            row_dict = {}
+            for i, col_name in enumerate(columns):
+                row_dict[col_name] = row[i]
+            rows.append(row_dict)
+        
+        return jsonify({
+            "table": table_name,
+            "columns": columns,
+            "rows": rows,
+            "total": total,
+            "limit": limit,
+            "offset": offset
+        })
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/database/query", methods=["POST"])
+@login_required
+def api_database_query():
+    """Execute a custom SQL query (SELECT only for safety)"""
+    try:
+        query = request.json.get("query", "").strip()
+        
+        # Only allow SELECT queries for safety
+        if not query.upper().startswith("SELECT"):
+            return jsonify({"error": "Only SELECT queries are allowed"}), 400
+        
+        db = get_db()
+        results = db.db_query(query)
+        
+        return jsonify({
+            "results": results,
+            "count": len(results) if results else 0
+        })
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/create_event", methods=["GET", "POST"])
+@login_required
+def create_event():
+    if request.method == "POST":
+        # Extract form data
+        name = request.form.get("name")
+        description = request.form.get("description")
+        event_json = request.form.get("event_json")
+        timezone_str = request.form.get("timezone")
+
+        # Extract combined hidden fields from JS
+        start_str = request.form.get("start")
+        end_str = request.form.get("end")
+
+        # Validate timezone
+        if not timezone_str or timezone_str not in pytz.all_timezones:
+            flash("Invalid timezone selected")
+            return redirect(url_for("create_event"))
+
+        tz = pytz.timezone(timezone_str)
+
+        # Parse start and end
+        try:
+            start_local = datetime.strptime(start_str, "%Y-%m-%d %I:%M %p")
+            end_local = datetime.strptime(end_str, "%Y-%m-%d %I:%M %p")
+        except ValueError:
+            flash("Invalid date/time format. Use YYYY-MM-DD HH:MM AM/PM")
+            return redirect(url_for("create_event"))
+
+        # Localize to selected timezone and convert to UTC
+        start_dt = tz.localize(start_local).astimezone(pytz.UTC)
+        end_dt = tz.localize(end_local).astimezone(pytz.UTC)
+
+        # Format for database (YYYY-MM-DDTHH:MM:SSZ)
+        start_utc = start_dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+        end_utc = end_dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+
+        # Build unique event name
+        unique_event_name = f"{name.replace(' ','-')}-{start_dt.strftime('%m-%d-%Y')}"
+
+        try:
+            # Insert into database
+            db = get_db()
+            insert_query = f"""
+            INSERT INTO events (unique_event_name, name, event_json, description, start_time, end_time)
+            VALUES ('{unique_event_name}', '{name}', '{event_json}', '{description}', '{start_utc}', '{end_utc}')
+            """
+            
+            db.db_insert(insert_query)
+            
+            # Log the event creation
+            sql_calendar.log_message_with_timestamp(f"Event created via web interface: {name}")
+            
+            flash(f"Event '{name}' created successfully!")
+            return redirect(url_for("index"))
+            
+        except Exception as e:
+            flash(f"Error creating event: {e}")
+            return redirect(url_for("create_event"))
+
+    # GET request
+    event_files = load_event_files()
+    return render_template("create_event.html", event_files=event_files)
 
 @app.route("/create_json_event", methods=["GET", "POST"])
 @login_required
@@ -195,7 +405,6 @@ def create_json_event():
 
             # Add dummy aggregate objective at the end
             setup_commands.append(f"scoreboard objectives add {aggregate_objective} dummy \"{aggregate_objective}\"")
-
         else:
             # Non-aggregate has exactly one setup objective
             obj_names = request.form.getlist("setup_obj_name[]")
@@ -222,6 +431,7 @@ def create_json_event():
 
         # Build final event JSON
         event_json = {
+            "unique_event_name": f"{name.replace(' ', '_')}",  # Add this field
             "name": name,
             "description": description,
             "is_aggregate": is_aggregate,
@@ -237,30 +447,33 @@ def create_json_event():
             "reward_name": reward_name,
         }
 
-        # ✅ Ensure path exists
+        # Ensure path exists
         os.makedirs(EVENTS_JSON_PATH, exist_ok=True)
 
-        # ✅ Save as CamelCase file
+        # Save as CamelCase file
         filename = "".join(word.capitalize() for word in name.split()) + ".json"
         filepath = os.path.join(EVENTS_JSON_PATH, filename)
 
         with open(filepath, "w") as f:
             json.dump(event_json, f, indent=2)
 
-        flash(f"Event '{name}' saved to {filepath}")
+        flash(f"Event JSON '{name}' saved to {filepath}")
         return redirect(url_for("index"))
 
-    # GET method → show form
+    # GET method
     return render_template("create_json_event.html")
 
+@app.route("/api/event_handler/start", methods=["POST"])
+@login_required
+def api_start_event_handler():
+    success = start_event_handler()
+    return jsonify({"success": success, "status": "Running" if is_event_handler_running() else "Not Running"})
 
 @app.route("/api/event_handler_status")
 @login_required
 def api_event_handler_status():
     running = is_event_handler_running()
-    return jsonify({
-        "status": "Running" if running else "Not Running"
-    })
+    return jsonify({"status": "Running" if running else "Not Running"})
 
 @app.route("/api/event_handler/stop", methods=["POST"])
 @login_required
@@ -277,17 +490,9 @@ def api_event_files():
 @app.route("/api/logs")
 @login_required
 def api_logs():
-    files = load_logs()
-    return jsonify(files)
-
-@app.route("/api/log_content/<filename>")
-@login_required
-def api_log_content(filename):
-    path = os.path.join(LOGS_PATH, filename)
-    if os.path.exists(path):
-        with open(path, "r") as f:
-            return f.read()
-    return "", 404
+    """Return database logs instead of file logs"""
+    logs = load_logs_from_db()
+    return jsonify(logs)
 
 @app.route("/api/event_json_content/<filename>")
 @login_required
@@ -300,94 +505,30 @@ def api_event_json_content(filename):
             return json.dumps(data, indent=2)
     return "", 404
 
-@app.route("/api/event_handler/logs")
-def event_handler_logs():
-    log_path = os.path.join("logs", "handler_logs.txt")
-
-    def generate():
-        with open(log_path, "r") as f:
-            lines = f.readlines()
-            # Start with last 20 lines
-            buffer = lines[-20:]
-            yield "data: " + "\n".join(buffer) + "\n\n"
-
-        # Tail the file in real time
-        with open(log_path, "r") as f:
-            f.seek(0, os.SEEK_END)  # move to end
-            while True:
-                line = f.readline()
-                if line:
-                    yield f"data: {line}\n\n"
-
-    return Response(generate(), mimetype="text/event-stream")
-
-@app.route("/create_event", methods=["GET", "POST"])
+# Keep this for backward compatibility, but note it's now deprecated
+@app.route("/api/log_content/<filename>")
 @login_required
-def create_event():
-    if request.method == "POST":
-        # Extract form data
-        name = request.form.get("name")
-        description = request.form.get("description")
-        event_json = request.form.get("event_json")
-        timezone_str = request.form.get("timezone")
-
-        # Extract combined hidden fields from JS
-        start_str = request.form.get("start")
-        end_str = request.form.get("end")
-
-        # Validate timezone
-        if not timezone_str or timezone_str not in pytz.all_timezones:
-            return "Invalid timezone selected", 400
-        tz = pytz.timezone(timezone_str)
-
-        # Parse start and end
-        try:
-            start_local = datetime.strptime(start_str, "%Y-%m-%d %I:%M %p")
-            end_local = datetime.strptime(end_str, "%Y-%m-%d %I:%M %p")
-        except ValueError:
-            return "Invalid date/time format. Use MM/DD/YYYY HH:MM AM/PM", 400
-
-        # Localize to selected timezone and convert to UTC
-        start_dt = tz.localize(start_local).astimezone(pytz.UTC)
-        end_dt = tz.localize(end_local).astimezone(pytz.UTC)
-
-        # Load calendar
-        if os.path.exists(CALENDAR_FILE):
-            with open(CALENDAR_FILE, "r") as f:
-                calendar = json.load(f)
-        else:
-            calendar = []
-
-        # Build event
-        unique_event_name = f"{name.replace(' ','-')}-{start_dt.strftime('%m-%d-%Y')}"
-        event = {
-            "unique_event_name": unique_event_name,
-            "name": name,
-            "event_json": event_json,
-            "description": description,
-            "start": start_dt.isoformat(),
-            "end": end_dt.isoformat(),
-            "24_hour_sent": False,
-            "30_minute_sent": False,
-            "event_start_sent": False,
-            "event_over_sent": False,
-            "event_in_progress": False,
-            "last_scoreboard_time": "",
-            "event_started": False,
-            "event_over": False
-        }
-
-        calendar.append(event)
-        with open(CALENDAR_FILE, "w") as f:
-            json.dump(calendar, f, indent=2)
-
-        return redirect(url_for("index"))
-
-    # GET request
-    event_files = [f for f in os.listdir(EVENTS_JSON_PATH) if f.endswith(".json")]
-    return render_template("create_event.html", event_files=event_files)
-
+def api_log_content(filename):
+    """Legacy endpoint - now redirects to database logs"""
+    if filename == "handler_logs.txt":
+        logs = load_logs_from_db()
+        log_text = "\n".join([f"{log['timestamp']}: [{log['log_level']}] {log['message']}" for log in logs])
+        return log_text
+    
+    # For other files, still check filesystem
+    path = os.path.join(LOGS_PATH, filename)
+    if os.path.exists(path):
+        with open(path, "r") as f:
+            return f.read()
+    return "", 404
 
 if __name__ == "__main__":
+    # Initialize database on startup
+    try:
+        db = get_db()
+        db.initialize_db()
+        print("Database initialized successfully")
+    except Exception as e:
+        print(f"Error initializing database: {e}")
+    
     app.run(host="0.0.0.0", port=8080, debug=True)
-

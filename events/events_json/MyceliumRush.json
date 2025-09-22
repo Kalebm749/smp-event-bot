@@ -1,0 +1,25 @@
+{
+  "unique_event_name": "Mycelium_Rush",
+  "name": "Mycelium Rush",
+  "description": "Who can collect the most of this rare grass. The winner will get a special prize!",
+  "is_aggregate": false,
+  "score_text": "mycelium collected",
+  "aggregate_objective": "MyceliumCollected",
+  "commands": {
+    "setup": [
+      "scoreboard objectives add MyceliumCollected minecraft.mined:minecraft.mycelium"
+    ],
+    "aggregate": [],
+    "cleanup": [
+      "MyceliumCollected"
+    ]
+  },
+  "sidebar": {
+    "displayName": "Mycelium Rush",
+    "color": "dark_purple",
+    "bold": true,
+    "duration": 15
+  },
+  "reward_cmd": "mycelium 30",
+  "reward_name": "Bin of rotten mycelium"
+}

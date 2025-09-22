@@ -2616,3 +2616,99 @@
 2025-09-22 03:24:02.047841+00:00: Checking if event Chicken-Chase-09-22-2025 is in progress
 2025-09-22 03:24:02.049076+00:00: Checking if Chicken-Chase-09-22-2025 is over
 2025-09-22 03:24:02.050294+00:00: Sleeping for 30 seconds
+2025-09-22 03:27:44.498677+00:00: Opened the calendar file correctly
+2025-09-22 03:27:44.500896+00:00: Scanning event Chicken-Chase-09-22-2025
+2025-09-22 03:27:44.502227+00:00: Event Chicken-Chase-09-22-2025 starts at 2025-09-22 01:06:00+00:00 and ends at 2025-09-22 01:08:00+00:00 it is now 2025-09-22 03:27:44.496509+00:00
+2025-09-22 03:27:44.503566+00:00: Checking 24 hour notification for Chicken-Chase-09-22-2025
+2025-09-22 03:27:44.504929+00:00: 24 hour notification has been sent?: True
+2025-09-22 03:27:44.506164+00:00: Checking 30 minute notification for Chicken-Chase-09-22-2025
+2025-09-22 03:27:44.507356+00:00: 30 minute has been sent?: True
+2025-09-22 03:27:44.508605+00:00: Checking event start notification for Chicken-Chase-09-22-2025
+2025-09-22 03:27:44.509943+00:00: Event start notification sent?: True
+2025-09-22 03:27:44.511292+00:00: Checking if event Chicken-Chase-09-22-2025 is in progress
+2025-09-22 03:27:44.512681+00:00: Checking if Chicken-Chase-09-22-2025 is over
+2025-09-22 03:27:44.513896+00:00: Scanning event Harvest-Oak-And-Birch-Logs-09-22-2025
+2025-09-22 03:27:44.515108+00:00: Event Harvest-Oak-And-Birch-Logs-09-22-2025 starts at 2025-09-22 03:12:00+00:00 and ends at 2025-09-22 03:15:00+00:00 it is now 2025-09-22 03:27:44.496509+00:00
+2025-09-22 03:27:44.516361+00:00: Checking 24 hour notification for Harvest-Oak-And-Birch-Logs-09-22-2025
+2025-09-22 03:27:44.517657+00:00: 24 hour notification has been sent?: True
+2025-09-22 03:27:44.518913+00:00: Checking 30 minute notification for Harvest-Oak-And-Birch-Logs-09-22-2025
+2025-09-22 03:27:44.520264+00:00: 30 minute has been sent?: True
+2025-09-22 03:27:44.521774+00:00: Checking event start notification for Harvest-Oak-And-Birch-Logs-09-22-2025
+2025-09-22 03:27:44.522961+00:00: Event start notification sent?: True
+2025-09-22 03:27:44.524196+00:00: Checking if event Harvest-Oak-And-Birch-Logs-09-22-2025 is in progress
+2025-09-22 03:27:44.525474+00:00: Checking if Harvest-Oak-And-Birch-Logs-09-22-2025 is over
+2025-09-22 03:27:44.526722+00:00: Scanning event Chicken-Chase-09-22-2025
+2025-09-22 03:27:44.528031+00:00: Event Chicken-Chase-09-22-2025 starts at 2025-09-22 03:20:00+00:00 and ends at 2025-09-22 03:22:00+00:00 it is now 2025-09-22 03:27:44.496509+00:00
+2025-09-22 03:27:44.529372+00:00: Checking 24 hour notification for Chicken-Chase-09-22-2025
+2025-09-22 03:27:44.530608+00:00: 24 hour notification has been sent?: True
+2025-09-22 03:27:44.531945+00:00: Checking 30 minute notification for Chicken-Chase-09-22-2025
+2025-09-22 03:27:44.533154+00:00: 30 minute has been sent?: True
+2025-09-22 03:27:44.534359+00:00: Checking event start notification for Chicken-Chase-09-22-2025
+2025-09-22 03:27:44.535640+00:00: Event start notification sent?: True
+2025-09-22 03:27:44.536924+00:00: Checking if event Chicken-Chase-09-22-2025 is in progress
+2025-09-22 03:27:44.538153+00:00: Checking if Chicken-Chase-09-22-2025 is over
+2025-09-22 03:27:44.539448+00:00: Sleeping for 30 seconds
+2025-09-22 03:28:16.157791+00:00: Opened the calendar file correctly
+2025-09-22 03:28:16.160045+00:00: Scanning event Chicken-Chase-09-22-2025
+2025-09-22 03:28:16.161470+00:00: Event Chicken-Chase-09-22-2025 starts at 2025-09-22 01:06:00+00:00 and ends at 2025-09-22 01:08:00+00:00 it is now 2025-09-22 03:28:16.155553+00:00
+2025-09-22 03:28:16.162759+00:00: Checking 24 hour notification for Chicken-Chase-09-22-2025
+2025-09-22 03:28:16.164013+00:00: 24 hour notification has been sent?: True
+2025-09-22 03:28:16.165402+00:00: Checking 30 minute notification for Chicken-Chase-09-22-2025
+2025-09-22 03:28:16.166609+00:00: 30 minute has been sent?: True
+2025-09-22 03:28:16.167780+00:00: Checking event start notification for Chicken-Chase-09-22-2025
+2025-09-22 03:28:16.169227+00:00: Event start notification sent?: True
+2025-09-22 03:28:16.170563+00:00: Checking if event Chicken-Chase-09-22-2025 is in progress
+2025-09-22 03:28:16.171775+00:00: Checking if Chicken-Chase-09-22-2025 is over
+2025-09-22 03:28:16.173284+00:00: Scanning event Harvest-Oak-And-Birch-Logs-09-22-2025
+2025-09-22 03:28:16.174533+00:00: Event Harvest-Oak-And-Birch-Logs-09-22-2025 starts at 2025-09-22 03:12:00+00:00 and ends at 2025-09-22 03:15:00+00:00 it is now 2025-09-22 03:28:16.155553+00:00
+2025-09-22 03:28:16.175742+00:00: Checking 24 hour notification for Harvest-Oak-And-Birch-Logs-09-22-2025
+2025-09-22 03:28:16.177342+00:00: 24 hour notification has been sent?: True
+2025-09-22 03:28:16.178629+00:00: Checking 30 minute notification for Harvest-Oak-And-Birch-Logs-09-22-2025
+2025-09-22 03:28:16.179841+00:00: 30 minute has been sent?: True
+2025-09-22 03:28:16.181284+00:00: Checking event start notification for Harvest-Oak-And-Birch-Logs-09-22-2025
+2025-09-22 03:28:16.182495+00:00: Event start notification sent?: True
+2025-09-22 03:28:16.183691+00:00: Checking if event Harvest-Oak-And-Birch-Logs-09-22-2025 is in progress
+2025-09-22 03:28:16.185085+00:00: Checking if Harvest-Oak-And-Birch-Logs-09-22-2025 is over
+2025-09-22 03:28:16.186357+00:00: Scanning event Chicken-Chase-09-22-2025
+2025-09-22 03:28:16.187588+00:00: Event Chicken-Chase-09-22-2025 starts at 2025-09-22 03:20:00+00:00 and ends at 2025-09-22 03:22:00+00:00 it is now 2025-09-22 03:28:16.155553+00:00
+2025-09-22 03:28:16.189013+00:00: Checking 24 hour notification for Chicken-Chase-09-22-2025
+2025-09-22 03:28:16.190193+00:00: 24 hour notification has been sent?: True
+2025-09-22 03:28:16.191349+00:00: Checking 30 minute notification for Chicken-Chase-09-22-2025
+2025-09-22 03:28:16.192800+00:00: 30 minute has been sent?: True
+2025-09-22 03:28:16.194131+00:00: Checking event start notification for Chicken-Chase-09-22-2025
+2025-09-22 03:28:16.195363+00:00: Event start notification sent?: True
+2025-09-22 03:28:16.196842+00:00: Checking if event Chicken-Chase-09-22-2025 is in progress
+2025-09-22 03:28:16.198125+00:00: Checking if Chicken-Chase-09-22-2025 is over
+2025-09-22 03:28:16.199352+00:00: Sleeping for 30 seconds
+2025-09-22 03:28:47.858729+00:00: Opened the calendar file correctly
+2025-09-22 03:28:47.860590+00:00: Scanning event Chicken-Chase-09-22-2025
+2025-09-22 03:28:47.861771+00:00: Event Chicken-Chase-09-22-2025 starts at 2025-09-22 01:06:00+00:00 and ends at 2025-09-22 01:08:00+00:00 it is now 2025-09-22 03:28:47.856856+00:00
+2025-09-22 03:28:47.863089+00:00: Checking 24 hour notification for Chicken-Chase-09-22-2025
+2025-09-22 03:28:47.864314+00:00: 24 hour notification has been sent?: True
+2025-09-22 03:28:47.865447+00:00: Checking 30 minute notification for Chicken-Chase-09-22-2025
+2025-09-22 03:28:47.866729+00:00: 30 minute has been sent?: True
+2025-09-22 03:28:47.867971+00:00: Checking event start notification for Chicken-Chase-09-22-2025
+2025-09-22 03:28:47.869531+00:00: Event start notification sent?: True
+2025-09-22 03:28:47.870751+00:00: Checking if event Chicken-Chase-09-22-2025 is in progress
+2025-09-22 03:28:47.871903+00:00: Checking if Chicken-Chase-09-22-2025 is over
+2025-09-22 03:28:47.873161+00:00: Scanning event Harvest-Oak-And-Birch-Logs-09-22-2025
+2025-09-22 03:28:47.874347+00:00: Event Harvest-Oak-And-Birch-Logs-09-22-2025 starts at 2025-09-22 03:12:00+00:00 and ends at 2025-09-22 03:15:00+00:00 it is now 2025-09-22 03:28:47.856856+00:00
+2025-09-22 03:28:47.875459+00:00: Checking 24 hour notification for Harvest-Oak-And-Birch-Logs-09-22-2025
+2025-09-22 03:28:47.876593+00:00: 24 hour notification has been sent?: True
+2025-09-22 03:28:47.877801+00:00: Checking 30 minute notification for Harvest-Oak-And-Birch-Logs-09-22-2025
+2025-09-22 03:28:47.879022+00:00: 30 minute has been sent?: True
+2025-09-22 03:28:47.880263+00:00: Checking event start notification for Harvest-Oak-And-Birch-Logs-09-22-2025
+2025-09-22 03:28:47.881498+00:00: Event start notification sent?: True
+2025-09-22 03:28:47.882799+00:00: Checking if event Harvest-Oak-And-Birch-Logs-09-22-2025 is in progress
+2025-09-22 03:28:47.884080+00:00: Checking if Harvest-Oak-And-Birch-Logs-09-22-2025 is over
+2025-09-22 03:28:47.885409+00:00: Scanning event Chicken-Chase-09-22-2025
+2025-09-22 03:28:47.886785+00:00: Event Chicken-Chase-09-22-2025 starts at 2025-09-22 03:20:00+00:00 and ends at 2025-09-22 03:22:00+00:00 it is now 2025-09-22 03:28:47.856856+00:00
+2025-09-22 03:28:47.888298+00:00: Checking 24 hour notification for Chicken-Chase-09-22-2025
+2025-09-22 03:28:47.889786+00:00: 24 hour notification has been sent?: True
+2025-09-22 03:28:47.891275+00:00: Checking 30 minute notification for Chicken-Chase-09-22-2025
+2025-09-22 03:28:47.892941+00:00: 30 minute has been sent?: True
+2025-09-22 03:28:47.894188+00:00: Checking event start notification for Chicken-Chase-09-22-2025
+2025-09-22 03:28:47.895316+00:00: Event start notification sent?: True
+2025-09-22 03:28:47.896526+00:00: Checking if event Chicken-Chase-09-22-2025 is in progress
+2025-09-22 03:28:47.897809+00:00: Checking if Chicken-Chase-09-22-2025 is over
+2025-09-22 03:28:47.898928+00:00: Sleeping for 30 seconds
