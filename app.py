@@ -1,5 +1,5 @@
 import subprocess
-from flask import Flask, render_template, jsonify, request, redirect, url_for, session, Response
+from flask import Flask, render_template, jsonify, request, redirect, url_for, session, Response, flash
 from dotenv import load_dotenv
 import os
 import json
@@ -151,6 +151,108 @@ def api_start_event_handler():
 @login_required
 def event_monitor():
     return render_template("event_monitor.html")
+
+@app.route("/create_json_event", methods=["GET", "POST"])
+@login_required
+def create_json_event():
+    if request.method == "POST":
+        # Basic fields
+        name = request.form.get("name")
+        description = request.form.get("description")
+        is_aggregate = request.form.get("is_aggregate") == "true"
+        score_text = request.form.get("score_text")
+        aggregate_objective = request.form.get("aggregate_objective")
+
+        # Sidebar fields
+        sidebar = {
+            "displayName": request.form.get("sidebar_display"),
+            "color": request.form.get("sidebar_color"),
+            "bold": request.form.get("sidebar_bold") == "true",
+            "duration": int(request.form.get("sidebar_duration") or 15),
+        }
+
+        # Reward fields
+        reward_cmd = request.form.get("reward_cmd")
+        reward_name = request.form.get("reward_name")
+
+        # Collect setup commands
+        setup_commands = []
+        aggregate_list = []
+
+        if is_aggregate:
+            # Extra setup commands for aggregate
+            obj_names = request.form.getlist("setup_obj_name[]")
+            actions = request.form.getlist("setup_action[]")
+            items = request.form.getlist("setup_item[]")
+
+            for obj_name, action, item in zip(obj_names, actions, items):
+                if action == "custom":
+                    cmd = f"scoreboard objectives add {obj_name} {item}"
+                else:
+                    cmd = f"scoreboard objectives add {obj_name} minecraft.{action}:minecraft.{item}"
+                setup_commands.append(cmd)
+                aggregate_list.append(obj_name)
+
+            # Add dummy aggregate objective at the end
+            setup_commands.append(f"scoreboard objectives add {aggregate_objective} dummy \"{aggregate_objective}\"")
+
+        else:
+            # Non-aggregate has exactly one setup objective
+            obj_names = request.form.getlist("setup_obj_name[]")
+            actions = request.form.getlist("setup_action[]")
+            items = request.form.getlist("setup_item[]")
+
+            if obj_names and actions and items:
+                obj_name = obj_names[0]
+                action = actions[0]
+                item = items[0]
+                if action == "custom":
+                    cmd = f"scoreboard objectives add {obj_name} {item}"
+                else:
+                    cmd = f"scoreboard objectives add {obj_name} minecraft.{action}:minecraft.{item}"
+                setup_commands.append(cmd)
+
+        # Cleanup commands = objectives to remove
+        cleanup_commands = []
+        if is_aggregate:
+            cleanup_commands.extend(aggregate_list)
+            cleanup_commands.append(aggregate_objective)
+        else:
+            cleanup_commands.append(aggregate_objective)
+
+        # Build final event JSON
+        event_json = {
+            "name": name,
+            "description": description,
+            "is_aggregate": is_aggregate,
+            "score_text": score_text,
+            "aggregate_objective": aggregate_objective,
+            "commands": {
+                "setup": setup_commands,
+                "aggregate": aggregate_list if is_aggregate else [],
+                "cleanup": cleanup_commands,
+            },
+            "sidebar": sidebar,
+            "reward_cmd": reward_cmd,
+            "reward_name": reward_name,
+        }
+
+        # ✅ Ensure path exists
+        os.makedirs(EVENTS_JSON_PATH, exist_ok=True)
+
+        # ✅ Save as CamelCase file
+        filename = "".join(word.capitalize() for word in name.split()) + ".json"
+        filepath = os.path.join(EVENTS_JSON_PATH, filename)
+
+        with open(filepath, "w") as f:
+            json.dump(event_json, f, indent=2)
+
+        flash(f"Event '{name}' saved to {filepath}")
+        return redirect(url_for("index"))
+
+    # GET method → show form
+    return render_template("create_json_event.html")
+
 
 @app.route("/api/event_handler_status")
 @login_required
