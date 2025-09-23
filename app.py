@@ -8,6 +8,9 @@ from functools import wraps
 import pytz
 import platform
 import sys
+import socket
+import re
+from mcrcon import MCRcon
 
 # Add src directory to path for imports
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
@@ -210,6 +213,120 @@ def event_monitor():
 def database_viewer():
     """New database viewer page"""
     return render_template("database_viewer.html")
+
+@app.route("/api/health/minecraft")
+@login_required
+def api_minecraft_health():
+    """Check if Minecraft server is reachable"""
+    try:
+        # Get host from environment (default to localhost if not set)
+        rcon_host = os.getenv("RCON_HOST")
+        if not rcon_host:
+            return jsonify({
+                "healthy": False,
+                "status": "error",
+                "error": "RCON_HOST not configured in .env"
+            })
+        
+        # Try to connect to the server port (usually 25565)
+        minecraft_port = 25565  # Standard Minecraft port
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5)  # 5 second timeout
+        
+        result = sock.connect_ex((rcon_host, minecraft_port))
+        sock.close()
+        
+        if result == 0:
+            return jsonify({
+                "healthy": True,
+                "status": "online",
+                "message": f"Server at {rcon_host}:{minecraft_port} is reachable"
+            })
+        else:
+            return jsonify({
+                "healthy": False,
+                "status": "offline",
+                "error": f"Cannot connect to {rcon_host}:{minecraft_port}"
+            })
+            
+    except Exception as e:
+        return jsonify({
+            "healthy": False,
+            "status": "error",
+            "error": str(e)
+        })
+
+@app.route("/api/health/rcon")
+@login_required 
+def api_rcon_health():
+    """Check if RCON connection is working"""
+    try:
+        # Import the working RCON wrapper from your existing code
+        import sys
+        sys.path.append('./src')
+        from rcon_event_framework import mcrcon_wrapper
+        
+        # Test RCON connection using the same function that works in your handler
+        result = mcrcon_wrapper("time query daytime")
+        
+        if result and len(result) > 0:
+            return jsonify({
+                "healthy": True,
+                "status": "connected",
+                "result": result[0].strip() if result[0] else "Command executed successfully",
+                "message": "RCON connection successful"
+            })
+        else:
+            return jsonify({
+                "healthy": False,
+                "status": "error",
+                "error": "RCON command returned no result"
+            })
+            
+    except Exception as e:
+        return jsonify({
+            "healthy": False,
+            "status": "error", 
+            "error": f"RCON connection failed: {str(e)}"
+        })
+
+@app.route("/api/health/overall")
+@login_required
+def api_overall_health():
+    """Get overall system health status"""
+    try:
+        # Check both Minecraft and RCON
+        minecraft_response = api_minecraft_health()
+        rcon_response = api_rcon_health()
+        
+        minecraft_data = minecraft_response.get_json()
+        rcon_data = rcon_response.get_json()
+        
+        minecraft_healthy = minecraft_data.get("healthy", False)
+        rcon_healthy = rcon_data.get("healthy", False)
+        
+        overall_healthy = minecraft_healthy and rcon_healthy
+        
+        issues = []
+        if not minecraft_healthy:
+            issues.append("Minecraft Server")
+        if not rcon_healthy:
+            issues.append("RCON Connection")
+        
+        return jsonify({
+            "healthy": overall_healthy,
+            "minecraft": minecraft_data,
+            "rcon": rcon_data,
+            "issues": issues,
+            "status": "All systems operational" if overall_healthy else f"Issues: {', '.join(issues)}"
+        })
+        
+    except Exception as e:
+        return jsonify({
+            "healthy": False,
+            "status": "error",
+            "error": str(e)
+        })
 
 @app.route("/api/database/info")
 @login_required

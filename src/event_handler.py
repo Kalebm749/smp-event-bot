@@ -46,7 +46,7 @@ def call_rcon_framework(action, json_file, unique_name=None):
     subprocess.run(cmd)
 
 def get_event_results(unique_event_name):
-    """Get event results from database"""
+    """Get event results from database (NOT from files)"""
     winners = []
     score = None
     
@@ -113,10 +113,13 @@ def main():
                 print(f"DEBUG| Ending Event {name}")
                 sql_calendar.log_message(f"Ending event: {name} (ID: {event_id})")
                 
-                # Stop the event on the server
-                call_rcon_framework("clean", event_json)
+                # Stop the event on the server - this will save winners to database
+                call_rcon_framework("clean", event_json, unique_name)
                 
-                # Get results from database using unique_name instead of name
+                # Give the RCON framework time to save winners to database
+                time.sleep(3)
+                
+                # Get results from database using unique_name
                 winners, score = get_event_results(unique_name)
                 
                 # Send Discord notification
