@@ -72,6 +72,25 @@ class db_manager():
 
         return result
 
+    def db_query_with_params(self, query, params):
+        """Execute a parameterized query to prevent SQL injection"""
+        result = None
+        db_conn = None
+
+        try:
+            with self.db_connect() as db_conn:
+                cursor = db_conn.cursor()
+                cursor.execute(query, params)
+                result = cursor.fetchall()
+                db_conn.commit()  # Commit for INSERT/UPDATE queries
+                cursor.close()
+
+        except Exception as e:
+            print(f"Error executing parameterized query: {e}")
+            print(f"Query: {query}")
+            print(f"Params: {params}")
+
+        return result
 
     def db_insert(self, query):
         result = None

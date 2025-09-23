@@ -22,47 +22,58 @@ RCON_FRAMEWORK_PATH = "./src/rcon_event_framework.py"
 def send_discord_notification(action, unique_name, winners=None, score=None):
     """Call the bot.py script with subprocess"""
     cmd = ["python3", BOT_PY_PATH, action, unique_name]
-    if winners and score:
+    
+    # For 'over' action, always add winners and score (even if empty/zero)
+    if action == "over":
+        if winners is None:
+            winners = ['no_Participants']
+        if score is None:
+            score = 0
         cmd.append(",".join(winners))
         cmd.append(str(score))
+    
     print(f"Sending Discord notification: {' '.join(cmd)}")
     sql_calendar.log_message(f"Sending Discord notification: {' '.join(cmd)}")
     subprocess.run(cmd)
 
-def call_rcon_framework(action, json_file):
+def call_rcon_framework(action, json_file, unique_name=None):
     """Call the RCON framework script"""
     cmd = ["python3", RCON_FRAMEWORK_PATH, action, json_file]
+    if unique_name:
+        cmd.append(unique_name)
     print(f"Calling RCON framework: {' '.join(cmd)}")
     sql_calendar.log_message(f"Calling RCON framework: {' '.join(cmd)}")
     subprocess.run(cmd)
 
-def get_event_results(event_name):
-    """Get event results from results file"""
-    date_str = datetime.now().strftime("%m-%d-%Y")
-    safe_event_name = event_name.replace(" ", "-")
-    results_pattern = f"{RESULTS_PATH}{safe_event_name}-{date_str}.json"
-    
+def get_event_results(unique_event_name):
+    """Get event results from database"""
     winners = []
     score = None
     
-    sql_calendar.log_message(f"Looking for results file: {results_pattern}")
-    results_file = glob.glob(results_pattern)
-    
-    if results_file:
-        try:
-            with open(results_file[0], 'r') as f:
-                results_data = json.load(f)
-                winners = results_data.get("Leaders", [])
-                score = results_data.get("FinalScore", None)
-                sql_calendar.log_message(f"Found results: winners={winners}, score={score}")
-        except Exception as e:
-            sql_calendar.log_message(f"Error reading results file: {e}", "ERROR")
-    else:
-        sql_calendar.log_message("No results file found")
-    
-    if not winners:
+    try:
+        # Get event ID from unique name
+        event_id = sql_calendar.get_event_id_by_unique_name(unique_event_name)
+        if not event_id:
+            sql_calendar.log_message(f"Could not find event ID for: {unique_event_name}", "ERROR")
+            return ['no_Participants'], 0
+        
+        # Get winners from database
+        winners_data = sql_calendar.get_event_winners(event_id)
+        
+        if winners_data:
+            # Extract winner names and get the final score from the first winner
+            winners = [winner[2] for winner in winners_data]  # player_name is index 2
+            score = winners_data[0][3] if winners_data[0][3] is not None else 0  # final_score is index 3
+            sql_calendar.log_message(f"Found winners in database: {winners} with score {score}")
+        else:
+            sql_calendar.log_message("No winners found in database")
+            winners = ['no_Participants']
+            score = 0
+            
+    except Exception as e:
+        sql_calendar.log_message(f"Error getting event results from database: {e}", "ERROR")
         winners = ['no_Participants']
-        score = 1
+        score = 0
     
     return winners, score
 
@@ -105,8 +116,8 @@ def main():
                 # Stop the event on the server
                 call_rcon_framework("clean", event_json)
                 
-                # Get results
-                winners, score = get_event_results(name)
+                # Get results from database using unique_name instead of name
+                winners, score = get_event_results(unique_name)
                 
                 # Send Discord notification
                 send_discord_notification("over", unique_name, winners=winners, score=score)

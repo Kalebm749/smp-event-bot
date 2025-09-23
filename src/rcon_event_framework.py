@@ -446,7 +446,7 @@ def closing_ceremony(event_data):
 
     log_to_sql("Closing ceremony completed")
 
-def run_event(action, json_file):
+def run_event(action, json_file, unique_name=None):
     """Main event runner function"""
     log_to_sql(f"Running event action: {action} with file: {json_file}")
     
@@ -454,6 +454,12 @@ def run_event(action, json_file):
     try:
         event_data = load_json(f'{events_path}{json_file}')
         log_to_sql(f"Loaded event data for: {event_data.get('name', 'Unknown')}")
+        
+        # Add unique_event_name to event_data if provided
+        if unique_name:
+            event_data['unique_event_name'] = unique_name
+            log_to_sql(f"Added unique_event_name to event data: {unique_name}")
+            
     except Exception as e:
         error_msg = f"Failed to load event JSON {json_file}: {e}"
         log_to_sql(error_msg, "ERROR")
@@ -461,7 +467,6 @@ def run_event(action, json_file):
         sys.exit(1)
 
     # Get event ID for database operations
-    unique_name = event_data.get('unique_event_name')
     event_id = None
     if unique_name:
         event_id = sql_calendar.get_event_id_by_unique_name(unique_name)
@@ -496,11 +501,12 @@ def run_event(action, json_file):
         sys.exit(1)
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage: python rcon_event_framework.py <start|display|clean> <json-file>")
+    if len(sys.argv) < 3:
+        print("Usage: python rcon_event_framework.py <start|display|clean> <json-file> [unique_event_name]")
         sys.exit(1)
 
     action = sys.argv[1]
     json_file = sys.argv[2]
+    unique_name = sys.argv[3] if len(sys.argv) > 3 else None
 
-    run_event(action, json_file)
+    run_event(action, json_file, unique_name)

@@ -523,12 +523,26 @@ def api_log_content(filename):
     return "", 404
 
 if __name__ == "__main__":
-    # Initialize database on startup
+    # Initialize database only if it doesn't exist
     try:
         db = get_db()
-        db.initialize_db()
-        print("Database initialized successfully")
+        
+        # Check if database file exists and has tables
+        if not os.path.exists(DATABASE_PATH):
+            print("Database file doesn't exist, creating new database...")
+            db.initialize_db()
+            print("Database initialized successfully")
+        else:
+            # Check if tables exist
+            info = db.db_info()
+            if not info or not info.get('tables'):
+                print("Database exists but has no tables, initializing...")
+                db.initialize_db()
+                print("Database initialized successfully")
+            else:
+                print(f"Database already exists with {len(info['tables'])} tables")
+                
     except Exception as e:
-        print(f"Error initializing database: {e}")
+        print(f"Error with database: {e}")
     
     app.run(host="0.0.0.0", port=8080, debug=True)

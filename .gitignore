@@ -15,4 +15,4 @@ __pycache__/
 .vscode/
 .idea/
 
-database/
+database/event_database.db

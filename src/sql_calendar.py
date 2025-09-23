@@ -118,41 +118,41 @@ def start_event_by_id(event_id):
     """Mark event as started"""
     db = db_manager(DATABASE_PATH, SCHEMA_PATH)
 
-    start_event_query = f"""
+    start_event_query = """
     UPDATE events
     SET event_in_progress = 1,
         event_started = 1
-    WHERE id = {event_id};
+    WHERE id = ?;
     """
 
-    return db.db_insert(start_event_query)
+    return db.db_query_with_params(start_event_query, (event_id,))
 
 def end_event_by_id(event_id):
     """Mark event as ended"""
     db = db_manager(DATABASE_PATH, SCHEMA_PATH)
 
-    end_event_query = f"""
+    end_event_query = """
     UPDATE events
     SET event_in_progress = 0,
         event_over = 1
-    WHERE id = {event_id};
+    WHERE id = ?;
     """
 
-    return db.db_insert(end_event_query)
+    return db.db_query_with_params(end_event_query, (event_id,))
 
 def update_scoreboard_display_time(event_id):
     """Update the last scoreboard display time"""
     db = db_manager(DATABASE_PATH, SCHEMA_PATH)
     
-    current_time = datetime.now(timezone.utc).isoformat()
+    current_time = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
     
-    update_query = f"""
+    update_query = """
     UPDATE events
-    SET last_scoreboard_time = '{current_time}'
-    WHERE id = {event_id};
+    SET last_scoreboard_time = ?
+    WHERE id = ?;
     """
     
-    return db.db_insert(update_query)
+    return db.db_query_with_params(update_query, (current_time, event_id))
 
 # === NOTIFICATION FUNCTIONS ===
 
@@ -160,45 +160,45 @@ def send_24h_notification(event_id):
     """Mark 24h notification as sent"""
     db = db_manager(DATABASE_PATH, SCHEMA_PATH)
 
-    query = f"""
+    query = """
     INSERT INTO event_notifications (event_id, notification_type)
-    VALUES ({event_id}, '24h');
+    VALUES (?, '24h');
     """
 
-    return db.db_insert(query)
+    return db.db_query_with_params(query, (event_id,))
 
 def send_30min_notification(event_id):
     """Mark 30min notification as sent"""
     db = db_manager(DATABASE_PATH, SCHEMA_PATH)
 
-    query = f"""
+    query = """
     INSERT INTO event_notifications (event_id, notification_type)
-    VALUES ({event_id}, '30min');
+    VALUES (?, '30min');
     """
 
-    return db.db_insert(query)
+    return db.db_query_with_params(query, (event_id,))
 
 def send_start_notification(event_id):
     """Mark start notification as sent"""
     db = db_manager(DATABASE_PATH, SCHEMA_PATH)
 
-    query = f"""
+    query = """
     INSERT INTO event_notifications (event_id, notification_type)
-    VALUES ({event_id}, 'start');
+    VALUES (?, 'start');
     """
 
-    return db.db_insert(query)
+    return db.db_query_with_params(query, (event_id,))
 
 def send_end_notification(event_id):
     """Mark end notification as sent"""
     db = db_manager(DATABASE_PATH, SCHEMA_PATH)
 
-    query = f"""
+    query = """
     INSERT INTO event_notifications (event_id, notification_type)
-    VALUES ({event_id}, 'end');
+    VALUES (?, 'end');
     """
 
-    return db.db_insert(query)
+    return db.db_query_with_params(query, (event_id,))
 
 # === HELPER FUNCTIONS ===
 
@@ -206,23 +206,23 @@ def get_event_by_id(event_id):
     """Get a single event by ID"""
     db = db_manager(DATABASE_PATH, SCHEMA_PATH)
     
-    query = f"""
-    SELECT * FROM events WHERE id = {event_id};
+    query = """
+    SELECT * FROM events WHERE id = ?;
     """
     
-    result = db.db_query(query)
+    result = db.db_query_with_params(query, (event_id,))
     return result[0] if result else None
 
 def insert_event(unique_name, name, event_json, description, start_time, end_time):
     """Insert a new event"""
     db = db_manager(DATABASE_PATH, SCHEMA_PATH)
     
-    query = f"""
+    query = """
     INSERT INTO events (unique_event_name, name, event_json, description, start_time, end_time)
-    VALUES ('{unique_name}', '{name}', '{event_json}', '{description}', '{start_time}', '{end_time}');
+    VALUES (?, ?, ?, ?, ?, ?);
     """
     
-    return db.db_insert(query)
+    return db.db_query_with_params(query, (unique_name, name, event_json, description, start_time, end_time))
 
 def log_message(message, level="INFO"):
     """Add a simple log entry with current timestamp"""
@@ -230,12 +230,12 @@ def log_message(message, level="INFO"):
     
     timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
     
-    query = f"""
+    query = """
     INSERT INTO logs (timestamp, message, log_level)
-    VALUES ('{timestamp}', '{message}', '{level}');
+    VALUES (?, ?, ?);
     """
     
-    return db.db_insert(query)
+    return db.db_query_with_params(query, (timestamp, message, level))
 
 def log_message_with_timestamp(message, level="INFO", timestamp=None):
     """Add a log entry with custom timestamp in UTC format"""
@@ -244,34 +244,34 @@ def log_message_with_timestamp(message, level="INFO", timestamp=None):
     if not timestamp:
         timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
     
-    query = f"""
+    query = """
     INSERT INTO logs (timestamp, message, log_level)
-    VALUES ('{timestamp}', '{message}', '{level}');
+    VALUES (?, ?, ?);
     """
     
-    return db.db_insert(query)
+    return db.db_query_with_params(query, (timestamp, message, level))
 
 def update_scoreboard_time(event_id, timestamp):
     """Update the last scoreboard display time for an event"""
     db = db_manager(DATABASE_PATH, SCHEMA_PATH)
     
-    query = f"""
+    query = """
     UPDATE events
-    SET last_scoreboard_time = '{timestamp}'
-    WHERE id = {event_id};
+    SET last_scoreboard_time = ?
+    WHERE id = ?;
     """
     
-    return db.db_insert(query)
+    return db.db_query_with_params(query, (timestamp, event_id))
 
 def get_event_id_by_unique_name(unique_name):
     """Get event ID by unique event name"""
     db = db_manager(DATABASE_PATH, SCHEMA_PATH)
     
-    query = f"""
-    SELECT id FROM events WHERE unique_event_name = '{unique_name}';
+    query = """
+    SELECT id FROM events WHERE unique_event_name = ?;
     """
     
-    result = db.db_query(query)
+    result = db.db_query_with_params(query, (unique_name,))
     return result[0][0] if result else None
 
 def insert_winner(event_id, player_name, final_score, was_online):
@@ -281,19 +281,19 @@ def insert_winner(event_id, player_name, final_score, was_online):
     # Format timestamp for rewarded_at field
     timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
     
-    query = f"""
+    query = """
     INSERT INTO event_winners (event_id, player_name, final_score, was_online, rewarded_at)
-    VALUES ({event_id}, '{player_name}', {final_score}, {1 if was_online else 0}, '{timestamp}');
+    VALUES (?, ?, ?, ?, ?);
     """
     
-    return db.db_insert(query)
+    return db.db_query_with_params(query, (event_id, player_name, final_score, 1 if was_online else 0, timestamp))
 
 def get_event_winners(event_id):
     """Get all winners for a specific event"""
     db = db_manager(DATABASE_PATH, SCHEMA_PATH)
     
-    query = f"""
-    SELECT * FROM event_winners WHERE event_id = {event_id};
+    query = """
+    SELECT * FROM event_winners WHERE event_id = ?;
     """
     
-    return db.db_query(query)
+    return db.db_query_with_params(query, (event_id,))
