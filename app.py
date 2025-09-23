@@ -407,6 +407,266 @@ def api_table_data(table_name):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route("/api/database/enhanced-table/<table_name>")
+@login_required
+def api_enhanced_table_data(table_name):
+    """Get enhanced table data with joined event names for notifications and winners"""
+    allowed_tables = ["event_notifications", "event_winners"]
+    if table_name not in allowed_tables:
+        return jsonify({"error": "Table not allowed"}), 400
+    
+    try:
+        db = get_db()
+        limit = request.args.get("limit", 50, type=int)
+        offset = request.args.get("offset", 0, type=int)
+        
+        if table_name == "event_notifications":
+            # Join with events table to get event name
+            query = f"""
+            SELECT n.id, n.event_id, e.unique_event_name, e.name as event_name, 
+                   n.notification_type, n.sent_at
+            FROM event_notifications n
+            JOIN events e ON n.event_id = e.id
+            ORDER BY n.id DESC 
+            LIMIT {limit} OFFSET {offset}
+            """
+            columns = ["id", "event_id", "unique_event_name", "event_name", "notification_type", "sent_at"]
+            
+            # Get total count
+            count_query = "SELECT COUNT(*) FROM event_notifications"
+            
+        elif table_name == "event_winners":
+            # Join with events table to get event name
+            query = f"""
+            SELECT w.id, w.event_id, e.unique_event_name, e.name as event_name,
+                   w.player_name, w.final_score, w.was_online, w.rewarded_at
+            FROM event_winners w
+            JOIN events e ON w.event_id = e.id
+            ORDER BY w.id DESC 
+            LIMIT {limit} OFFSET {offset}
+            """
+            columns = ["id", "event_id", "unique_event_name", "event_name", "player_name", "final_score", "was_online", "rewarded_at"]
+            
+            # Get total count
+            count_query = "SELECT COUNT(*) FROM event_winners"
+        
+        # Get total count
+        count_result = db.db_query(count_query)
+        total = count_result[0][0] if count_result else 0
+        
+        # Get enhanced data
+        results = db.db_query(query)
+        
+        # Format results
+        rows = []
+        for row in results:
+            row_dict = {}
+            for i, col_name in enumerate(columns):
+                row_dict[col_name] = row[i]
+            rows.append(row_dict)
+        
+        return jsonify({
+            "table": table_name,
+            "columns": columns,
+            "rows": rows,
+            "total": total,
+            "limit": limit,
+            "offset": offset
+        })
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/database/admin-unlock", methods=["POST"])
+@login_required
+def api_admin_unlock():
+    """Verify DATABASE_MASTER password"""
+    try:
+        password = request.json.get("password")
+        master_password = os.getenv("DATABASE_MASTER")
+        
+        if not master_password:
+            return jsonify({"success": False, "error": "DATABASE_MASTER not configured"})
+        
+        if password == master_password:
+            return jsonify({"success": True})
+        else:
+            return jsonify({"success": False, "error": "Invalid password"})
+            
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route("/api/database/admin-clear-logs", methods=["POST"])
+@login_required
+def api_admin_clear_logs():
+    """Clear all logs from the database"""
+    try:
+        db = get_db()
+        
+        # Get count before deletion
+        count_query = "SELECT COUNT(*) FROM logs"
+        count_result = db.db_query(count_query)
+        deleted_count = count_result[0][0] if count_result else 0
+        
+        # Delete all logs
+        delete_query = "DELETE FROM logs"
+        db.db_query_with_params(delete_query, ())
+        
+        # Log the action
+        sql_calendar.log_message(f"Admin cleared {deleted_count} log entries via web interface", "ADMIN")
+        
+        return jsonify({
+            "success": True,
+            "deleted_count": deleted_count
+        })
+        
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route("/api/database/admin-events-list")
+@login_required
+def api_admin_events_list():
+    """Get list of all events for admin deletion"""
+    try:
+        db = get_db()
+        
+        query = """
+        SELECT id, unique_event_name, name, start_time, end_time, event_over
+        FROM events 
+        ORDER BY start_time DESC
+        """
+        
+        results = db.db_query(query)
+        
+        events = []
+        for row in results:
+            events.append({
+                "id": row[0],
+                "unique_event_name": row[1],
+                "name": row[2],
+                "start_time": row[3],
+                "end_time": row[4],
+                "event_over": bool(row[5])
+            })
+        
+        return jsonify({"events": events})
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/database/admin-json-files")
+@login_required
+def api_admin_json_files():
+    """Get list of all event JSON files for admin management"""
+    try:
+        if not os.path.exists(EVENTS_JSON_PATH):
+            return jsonify({"files": []})
+        
+        files = []
+        for filename in os.listdir(EVENTS_JSON_PATH):
+            if filename.endswith('.json'):
+                filepath = os.path.join(EVENTS_JSON_PATH, filename)
+                stat = os.stat(filepath)
+                
+                # Try to read the JSON to get event details
+                try:
+                    with open(filepath, 'r') as f:
+                        data = json.load(f)
+                    event_name = data.get('name', 'Unknown')
+                    description = data.get('description', 'No description')
+                except:
+                    event_name = filename.replace('.json', '')
+                    description = 'Could not read file'
+                
+                files.append({
+                    "filename": filename,
+                    "event_name": event_name,
+                    "description": description,
+                    "size_bytes": stat.st_size,
+                    "modified": datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M:%S')
+                })
+        
+        # Sort by filename
+        files.sort(key=lambda x: x['filename'])
+        
+        return jsonify({"files": files})
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/database/admin-delete-json", methods=["POST"])
+@login_required
+def api_admin_delete_json():
+    """Delete an event JSON file"""
+    try:
+        filename = request.json.get("filename")
+        if not filename:
+            return jsonify({"success": False, "error": "No filename provided"})
+        
+        # Validate filename (security check)
+        if not filename.endswith('.json') or '/' in filename or '\\' in filename:
+            return jsonify({"success": False, "error": "Invalid filename"})
+        
+        filepath = os.path.join(EVENTS_JSON_PATH, filename)
+        
+        if not os.path.exists(filepath):
+            return jsonify({"success": False, "error": "File not found"})
+        
+        # Delete the file
+        os.remove(filepath)
+        
+        # Log the deletion
+        sql_calendar.log_message(f"Admin deleted event JSON file: {filename}", "ADMIN")
+        
+        return jsonify({
+            "success": True,
+            "message": f"Event JSON file '{filename}' deleted successfully"
+        })
+        
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route("/api/database/admin-delete-event", methods=["POST"])
+@login_required
+def api_admin_delete_event():
+    """Delete an event and all related data"""
+    try:
+        event_id = request.json.get("event_id")
+        if not event_id:
+            return jsonify({"success": False, "error": "No event ID provided"})
+        
+        db = get_db()
+        
+        # Get event details for logging
+        event_query = "SELECT unique_event_name, name FROM events WHERE id = ?"
+        event_result = db.db_query_with_params(event_query, (event_id,))
+        
+        if not event_result:
+            return jsonify({"success": False, "error": "Event not found"})
+        
+        unique_name, event_name = event_result[0]
+        
+        # Delete in proper order (foreign key constraints)
+        # 1. Delete event_winners
+        db.db_query_with_params("DELETE FROM event_winners WHERE event_id = ?", (event_id,))
+        
+        # 2. Delete event_notifications  
+        db.db_query_with_params("DELETE FROM event_notifications WHERE event_id = ?", (event_id,))
+        
+        # 3. Delete the event itself
+        db.db_query_with_params("DELETE FROM events WHERE id = ?", (event_id,))
+        
+        # Log the deletion
+        sql_calendar.log_message(f"Admin deleted event '{event_name}' ({unique_name}) and all related data via web interface", "ADMIN")
+        
+        return jsonify({
+            "success": True,
+            "message": f"Event '{event_name}' and all related data deleted successfully"
+        })
+        
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
 @app.route("/api/database/query", methods=["POST"])
 @login_required
 def api_database_query():

@@ -181,6 +181,7 @@
             <div class="tab-button" onclick="switchTab('logs')">Logs</div>
             <div class="tab-button" onclick="switchTab('winners')">Winners</div>
             <div class="tab-button" onclick="switchTab('query')">Custom Query</div>
+            <div class="tab-button" onclick="switchTab('admin')" style="background-color: #8b3a3a;">🔒 Admin</div>
         </div>
 
         <!-- Tab Contents -->
@@ -261,6 +262,90 @@
                 <div id="query-results"></div>
             </div>
         </div>
+
+        <div id="admin-tab" class="tab-content">
+            <div class="panel">
+                <h2 style="color: #f44336;">🔒 Database Administration</h2>
+                <p style="color: #888; margin-bottom: 20px;">⚠️ Warning: These actions are permanent and cannot be undone!</p>
+                
+                <!-- Password Protection -->
+                <div id="admin-password-section">
+                    <div style="max-width: 400px; margin-bottom: 30px;">
+                        <label for="admin-password" style="display: block; margin-bottom: 10px; font-weight: bold;">Master Password:</label>
+                        <input type="password" id="admin-password" placeholder="Enter DATABASE_MASTER password" style="width: 100%; padding: 10px; margin-bottom: 10px; background-color: #1c2a42; color: #e0e0e0; border: 1px solid #3a4a6f; border-radius: 4px;">
+                        <button onclick="unlockAdmin()" style="background-color: #f44336; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer;">Unlock Admin Functions</button>
+                    </div>
+                </div>
+
+                <!-- Admin Functions (hidden until unlocked) -->
+                <div id="admin-functions" style="display: none;">
+                    
+                    <!-- Clear Logs Section -->
+                    <div style="background-color: #2f1e1e; border: 1px solid #8b3a3a; border-radius: 6px; padding: 20px; margin-bottom: 20px;">
+                        <h3 style="color: #f44336; margin-top: 0;">Clear Application Logs</h3>
+                        <p style="color: #ccc;">Remove all log entries from the database. This will not affect event data.</p>
+                        <div style="margin-top: 15px;">
+                            <button onclick="clearLogs()" style="background-color: #ff9800; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin-right: 10px;">Clear All Logs</button>
+                            <span id="logs-status" style="color: #888;"></span>
+                        </div>
+                    </div>
+
+                    <!-- Delete Events Section -->
+                    <div style="background-color: #2f1e1e; border: 1px solid #8b3a3a; border-radius: 6px; padding: 20px; margin-bottom: 20px;">
+                        <h3 style="color: #f44336; margin-top: 0;">Delete Events</h3>
+                        <p style="color: #ccc;">Completely remove events and all related data (notifications, winners, etc.)</p>
+                        
+                        <!-- Event Selection -->
+                        <div style="margin-bottom: 15px;">
+                            <label for="event-to-delete" style="display: block; margin-bottom: 5px; font-weight: bold;">Select Event to Delete:</label>
+                            <select id="event-to-delete" style="width: 100%; max-width: 500px; padding: 8px; background-color: #1c2a42; color: #e0e0e0; border: 1px solid #3a4a6f; border-radius: 4px;">
+                                <option value="">Loading events...</option>
+                            </select>
+                            <button onclick="refreshEventsList()" style="background-color: #3a4a6f; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; margin-left: 10px;">Refresh</button>
+                        </div>
+
+                        <!-- Event Details Preview -->
+                        <div id="event-details" style="background-color: #1c2a42; border: 1px solid #3a4a6f; border-radius: 4px; padding: 15px; margin-bottom: 15px; display: none;">
+                            <h4 style="margin-top: 0; color: #e0e0e0;">Event Details:</h4>
+                            <div id="event-info"></div>
+                        </div>
+
+                        <!-- Delete Button -->
+                        <div style="margin-top: 15px;">
+                            <button onclick="deleteEvent()" id="delete-event-btn" disabled style="background-color: #666; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: not-allowed;">Delete Event & All Related Data</button>
+                            <span id="delete-status" style="color: #888; margin-left: 15px;"></span>
+                        </div>
+                    </div>
+
+                    <!-- Delete JSON Files Section -->
+                    <div style="background-color: #2f1e1e; border: 1px solid #8b3a3a; border-radius: 6px; padding: 20px;">
+                        <h3 style="color: #f44336; margin-top: 0;">Delete Event Templates</h3>
+                        <p style="color: #ccc;">Delete event JSON template files. This will not affect scheduled events, only the templates used to create new events.</p>
+                        
+                        <!-- JSON File Selection -->
+                        <div style="margin-bottom: 15px;">
+                            <label for="json-to-delete" style="display: block; margin-bottom: 5px; font-weight: bold;">Select JSON Template to Delete:</label>
+                            <select id="json-to-delete" style="width: 100%; max-width: 500px; padding: 8px; background-color: #1c2a42; color: #e0e0e0; border: 1px solid #3a4a6f; border-radius: 4px;">
+                                <option value="">Loading JSON files...</option>
+                            </select>
+                            <button onclick="refreshJsonFilesList()" style="background-color: #3a4a6f; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; margin-left: 10px;">Refresh</button>
+                        </div>
+
+                        <!-- JSON File Details Preview -->
+                        <div id="json-details" style="background-color: #1c2a42; border: 1px solid #3a4a6f; border-radius: 4px; padding: 15px; margin-bottom: 15px; display: none;">
+                            <h4 style="margin-top: 0; color: #e0e0e0;">File Details:</h4>
+                            <div id="json-info"></div>
+                        </div>
+
+                        <!-- Delete JSON Button -->
+                        <div style="margin-top: 15px;">
+                            <button onclick="deleteJsonFile()" id="delete-json-btn" disabled style="background-color: #666; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: not-allowed;">Delete JSON Template</button>
+                            <span id="delete-json-status" style="color: #888; margin-left: 15px;"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -272,6 +357,60 @@
             loadDatabaseInfo();
             loadTable('events');
             setupExampleQueries();
+
+            // Add event listener for event selection (for admin tab)
+            setTimeout(() => {
+                const eventSelect = document.getElementById('event-to-delete');
+                if (eventSelect) {
+                    eventSelect.addEventListener('change', function() {
+                        const deleteBtn = document.getElementById('delete-event-btn');
+                        
+                        if (this.value) {
+                            deleteBtn.disabled = false;
+                            deleteBtn.style.backgroundColor = '#f44336';
+                            deleteBtn.style.cursor = 'pointer';
+                            
+                            // Show event details
+                            const eventText = this.selectedOptions[0].textContent;
+                            document.getElementById('event-info').innerHTML = `<strong>${eventText}</strong>`;
+                            document.getElementById('event-details').style.display = 'block';
+                            document.getElementById('delete-status').textContent = '';
+                        } else {
+                            deleteBtn.disabled = true;
+                            deleteBtn.style.backgroundColor = '#666';
+                            deleteBtn.style.cursor = 'not-allowed';
+                            document.getElementById('event-details').style.display = 'none';
+                        }
+                    });
+                }
+            }, 1000);
+
+            // Add event listener for JSON file selection
+            setTimeout(() => {
+                const jsonSelect = document.getElementById('json-to-delete');
+                if (jsonSelect) {
+                    jsonSelect.addEventListener('change', function() {
+                        const deleteBtn = document.getElementById('delete-json-btn');
+                        
+                        if (this.value) {
+                            deleteBtn.disabled = false;
+                            deleteBtn.style.backgroundColor = '#f44336';
+                            deleteBtn.style.cursor = 'pointer';
+                            
+                            // Show JSON file details
+                            const fileText = this.selectedOptions[0].textContent;
+                            document.getElementById('json-info').innerHTML = `<strong>${fileText}</strong>`;
+                            document.getElementById('json-details').style.display = 'block';
+                            document.getElementById('delete-json-status').textContent = '';
+                        } else {
+                            deleteBtn.disabled = true;
+                            deleteBtn.style.backgroundColor = '#666';
+                            deleteBtn.style.cursor = 'not-allowed';
+                            document.getElementById('json-details').style.display = 'none';
+                        }
+                    });
+                }
+            }, 1000);
         });
 
         function switchTab(tabName) {
@@ -352,7 +491,12 @@
 
             document.getElementById(targetDiv).innerHTML = '<div class="loading">Loading data...</div>';
 
-            fetch(`/api/database/table/${tableName}?limit=${limit}`)
+            // Use enhanced endpoint for notifications and winners
+            const endpoint = (tableName === 'event_notifications' || tableName === 'event_winners') 
+                ? `/api/database/enhanced-table/${tableName}?limit=${limit}`
+                : `/api/database/table/${tableName}?limit=${limit}`;
+
+            fetch(endpoint)
                 .then(response => response.json())
                 .then(data => {
                     if (data.error) {
@@ -519,6 +663,174 @@
                     document.getElementById('query-input').value = query;
                 };
                 container.appendChild(button);
+            });
+        }
+
+        // Admin functions
+        function unlockAdmin() {
+            const password = document.getElementById('admin-password').value;
+            
+            fetch('/api/database/admin-unlock', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password: password })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('admin-password-section').style.display = 'none';
+                    document.getElementById('admin-functions').style.display = 'block';
+                    refreshEventsList();
+                    refreshJsonFilesList();
+                } else {
+                    alert('Invalid password');
+                    document.getElementById('admin-password').value = '';
+                }
+            })
+            .catch(error => {
+                alert('Error validating password');
+            });
+        }
+
+        function clearLogs() {
+            if (!confirm('Are you sure you want to delete ALL log entries? This cannot be undone.')) {
+                return;
+            }
+
+            document.getElementById('logs-status').textContent = 'Clearing logs...';
+            
+            fetch('/api/database/admin-clear-logs', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('logs-status').textContent = `✅ Cleared ${data.deleted_count} log entries`;
+                        // Refresh logs tab if it's currently loaded
+                        if (currentTable === 'logs') {
+                            loadTable('logs');
+                        }
+                    } else {
+                        document.getElementById('logs-status').textContent = `❌ Error: ${data.error}`;
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('logs-status').textContent = `❌ Error: ${error}`;
+                });
+        }
+
+        function refreshEventsList() {
+            const select = document.getElementById('event-to-delete');
+            select.innerHTML = '<option value="">Loading events...</option>';
+            
+            fetch('/api/database/admin-events-list')
+                .then(response => response.json())
+                .then(data => {
+                    select.innerHTML = '<option value="">Select an event to delete...</option>';
+                    
+                    data.events.forEach(event => {
+                        const option = document.createElement('option');
+                        option.value = event.id;
+                        option.textContent = `${event.name} (${event.unique_event_name}) - ${event.start_time}`;
+                        select.appendChild(option);
+                    });
+                })
+                .catch(error => {
+                    select.innerHTML = '<option value="">Error loading events</option>';
+                });
+        }
+
+        function deleteEvent() {
+            const eventId = document.getElementById('event-to-delete').value;
+            if (!eventId) return;
+
+            const eventName = document.getElementById('event-to-delete').selectedOptions[0].textContent;
+            
+            if (!confirm(`Are you ABSOLUTELY sure you want to permanently delete this event and ALL related data?\n\n${eventName}\n\nThis will delete:\n- Event record\n- All notifications\n- All winners\n- Cannot be undone!`)) {
+                return;
+            }
+
+            document.getElementById('delete-status').textContent = 'Deleting...';
+            document.getElementById('delete-event-btn').disabled = true;
+            
+            fetch('/api/database/admin-delete-event', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ event_id: eventId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('delete-status').textContent = `✅ Event deleted successfully`;
+                    refreshEventsList();
+                    document.getElementById('event-details').style.display = 'none';
+                    
+                    // Refresh any loaded tables
+                    if (['events', 'event_notifications', 'event_winners'].includes(currentTable)) {
+                        loadTable(currentTable);
+                    }
+                } else {
+                    document.getElementById('delete-status').textContent = `❌ Error: ${data.error}`;
+                    document.getElementById('delete-event-btn').disabled = false;
+                }
+            })
+            .catch(error => {
+                document.getElementById('delete-status').textContent = `❌ Error: ${error}`;
+                document.getElementById('delete-event-btn').disabled = false;
+            });
+        }
+
+        function refreshJsonFilesList() {
+            const select = document.getElementById('json-to-delete');
+            select.innerHTML = '<option value="">Loading JSON files...</option>';
+            
+            fetch('/api/database/admin-json-files')
+                .then(response => response.json())
+                .then(data => {
+                    select.innerHTML = '<option value="">Select a JSON template to delete...</option>';
+                    
+                    data.files.forEach(file => {
+                        const option = document.createElement('option');
+                        option.value = file.filename;
+                        option.textContent = `${file.filename} - ${file.event_name} (${file.size_bytes} bytes, modified: ${file.modified})`;
+                        select.appendChild(option);
+                    });
+                })
+                .catch(error => {
+                    select.innerHTML = '<option value="">Error loading JSON files</option>';
+                });
+        }
+
+        function deleteJsonFile() {
+            const filename = document.getElementById('json-to-delete').value;
+            if (!filename) return;
+
+            const fileText = document.getElementById('json-to-delete').selectedOptions[0].textContent;
+            
+            if (!confirm(`Are you ABSOLUTELY sure you want to permanently delete this JSON template?\n\n${fileText}\n\nThis will:\n- Delete the template file\n- Prevent creating new events of this type\n- NOT affect existing scheduled events\n- Cannot be undone!`)) {
+                return;
+            }
+
+            document.getElementById('delete-json-status').textContent = 'Deleting...';
+            document.getElementById('delete-json-btn').disabled = true;
+            
+            fetch('/api/database/admin-delete-json', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ filename: filename })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('delete-json-status').textContent = `✅ JSON template deleted successfully`;
+                    refreshJsonFilesList();
+                    document.getElementById('json-details').style.display = 'none';
+                } else {
+                    document.getElementById('delete-json-status').textContent = `❌ Error: ${data.error}`;
+                    document.getElementById('delete-json-btn').disabled = false;
+                }
+            })
+            .catch(error => {
+                document.getElementById('delete-json-status').textContent = `❌ Error: ${error}`;
+                document.getElementById('delete-json-btn').disabled = false;
             });
         }
     </script>
