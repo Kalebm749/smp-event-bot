@@ -259,37 +259,51 @@ def api_minecraft_health():
 @app.route("/api/health/rcon")
 @login_required 
 def api_rcon_health():
-    """Check if RCON connection is working"""
+    """Check if RCON connection is working using external script"""
     try:
-        # Import the working RCON wrapper from your existing code
-        import sys
-        sys.path.append('./src')
-        from rcon_event_framework import mcrcon_wrapper
+        # Run the external RCON health check script
+        import subprocess
         
-        # Test RCON connection using the same function that works in your handler
-        result = mcrcon_wrapper("time query daytime")
+        script_path = os.path.join("src", "rcon_health_check.py")
         
-        if result and len(result) > 0:
-            return jsonify({
-                "healthy": True,
-                "status": "connected",
-                "result": result[0].strip() if result[0] else "Command executed successfully",
-                "message": "RCON connection successful"
-            })
+        # Run the script and capture output
+        result = subprocess.run(
+            [sys.executable, script_path], 
+            capture_output=True, 
+            text=True, 
+            timeout=10  # 10 second timeout
+        )
+        
+        if result.returncode == 0:
+            # Parse the JSON output from the script
+            import json
+            health_data = json.loads(result.stdout.strip())
+            return jsonify(health_data)
         else:
-            return jsonify({
-                "healthy": False,
-                "status": "error",
-                "error": "RCON command returned no result"
-            })
-            
+            # Script failed, try to parse error output
+            try:
+                error_data = json.loads(result.stdout.strip())
+                return jsonify(error_data)
+            except:
+                return jsonify({
+                    "healthy": False,
+                    "status": "error",
+                    "error": f"RCON health check script failed: {result.stderr or 'Unknown error'}"
+                })
+                
+    except subprocess.TimeoutExpired:
+        return jsonify({
+            "healthy": False,
+            "status": "error",
+            "error": "RCON health check timed out"
+        })
     except Exception as e:
         return jsonify({
             "healthy": False,
-            "status": "error", 
-            "error": f"RCON connection failed: {str(e)}"
+            "status": "error",
+            "error": f"Failed to run RCON health check: {str(e)}"
         })
-
+    
 @app.route("/api/health/overall")
 @login_required
 def api_overall_health():
@@ -453,7 +467,7 @@ def create_event():
         end_utc = end_dt.strftime('%Y-%m-%dT%H:%M:%SZ')
 
         # Build unique event name
-        unique_event_name = f"{name.replace(' ','-')}-{start_dt.strftime('%m-%d-%Y')}"
+        unique_event_name = f"{name.replace(' ','-')}-{start_dt.strftime('%m-%d-%Y-%H%M')}"
 
         try:
             # Insert into database

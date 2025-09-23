@@ -2,44 +2,181 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Create Event</title>
+    <title>Schedule Event</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <style>
-        /* Stack form fields vertically */
-        #create-event-form div.form-group {
+        .form-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
             display: flex;
             flex-direction: column;
             margin-bottom: 15px;
         }
 
-        #create-event-form input,
-        #create-event-form select,
-        #create-event-form textarea {
-            width: 100%;
-            padding: 8px;
-            border-radius: 4px;
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .form-group label {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #e0e0e0;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            padding: 10px;
+            border-radius: 6px;
             border: 1px solid #3a4a6f;
             background-color: #1c2a42;
             color: #e0e0e0;
-            box-sizing: border-box;
+            font-size: 14px;
+            transition: border-color 0.3s;
         }
 
-        #create-event-form textarea {
-            resize: vertical;
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #50628b;
+            box-shadow: 0 0 0 2px rgba(80, 98, 139, 0.3);
         }
 
-        #create-event-form button {
+        .datetime-input {
+            position: relative;
+        }
+
+        .datetime-preview {
+            background-color: #2e3e5d;
+            padding: 8px 10px;
+            border-radius: 4px;
+            margin-top: 5px;
+            font-size: 12px;
+            color: #ccc;
+        }
+
+        .event-preview {
+            background-color: #1c2a42;
+            border: 1px solid #3a4a6f;
+            border-radius: 6px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .event-preview h3 {
+            margin-top: 0;
+            color: #4caf50;
+        }
+
+        .preview-field {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            padding: 5px 0;
+            border-bottom: 1px solid #3a4a6f;
+        }
+
+        .preview-label {
+            font-weight: bold;
+            color: #ccc;
+        }
+
+        .preview-value {
+            color: #e0e0e0;
+        }
+
+        .submit-btn {
+            background: linear-gradient(135deg, #4caf50, #66bb6a);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 16px;
+            width: 100%;
+            margin-top: 20px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+        }
+
+        .submit-btn:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .quick-times {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 5px;
+        }
+
+        .quick-time-btn {
             background-color: #3a4a6f;
             color: #e0e0e0;
             border: none;
-            padding: 8px 12px;
+            padding: 5px 10px;
             border-radius: 4px;
             cursor: pointer;
-            font-weight: bold;
+            font-size: 12px;
         }
 
-        #create-event-form button:hover {
+        .quick-time-btn:hover {
             background-color: #50628b;
+        }
+
+        .duration-presets {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 5px;
+        }
+
+        .duration-btn {
+            background-color: #2e3e5d;
+            color: #e0e0e0;
+            border: 1px solid #3a4a6f;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .duration-btn:hover {
+            background-color: #3a4a6f;
+        }
+
+        .error-message {
+            background-color: #4d2c2c;
+            border: 1px solid #f44336;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            color: #e0e0e0;
+        }
+
+        @media (max-width: 768px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
@@ -47,129 +184,342 @@
     {% include 'navbar.html' %}
 
     <div class="container">
-        <div class="panel">
-            <h2>Create New Event</h2>
-            <form id="create-event-form" method="POST" action="{{ url_for('create_event') }}">
+        <div class="form-container">
+            <div class="panel">
+                <h2>Schedule New Event</h2>
                 
-                <!-- Event JSON Selection -->
-                <div class="form-group">
-                    <label for="event_json">Event JSON</label>
-                    <select id="event_json" name="event_json" required>
-                        <option value="" disabled selected>Select an event JSON</option>
-                        {% for file in event_files %}
-                        <option value="{{ file }}">{{ file }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
+                <div id="error-container"></div>
 
-                <!-- Event Name -->
-                <div class="form-group">
-                    <label for="name">Event Name</label>
-                    <input type="text" id="name" name="name" placeholder="Event Name" readonly required>
-                </div>
+                <form id="create-event-form" method="POST" action="{{ url_for('create_event') }}">
+                    
+                    <div class="form-grid">
+                        <!-- Event Selection -->
+                        <div class="form-group">
+                            <label for="event_json">Event Type</label>
+                            <select id="event_json" name="event_json" required>
+                                <option value="" disabled selected>Choose an event type</option>
+                                {% for file in event_files %}
+                                <option value="{{ file }}">{{ file.replace('.json', '') }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
 
-                <!-- Timezone -->
-                <div class="form-group">
-                    <label for="timezone">Timezone</label>
-                    <select id="timezone" name="timezone" required>
-                        <option value="" disabled selected>Select timezone</option>
-                        <option value="US/Eastern">US/Eastern</option>
-                        <option value="US/Central">US/Central</option>
-                        <option value="US/Mountain">US/Mountain</option>
-                        <option value="US/Pacific">US/Pacific</option>
-                        <option value="Europe/London">Europe/London</option>
-                        <option value="Europe/Berlin">Europe/Berlin</option>
-                        <option value="Europe/Paris">Europe/Paris</option>
-                        <option value="Europe/Madrid">Europe/Madrid</option>
-                        <option value="Europe/Rome">Europe/Rome</option>
-                        <option value="Europe/Amsterdam">Europe/Amsterdam</option>
-                        <option value="Europe/Stockholm">Europe/Stockholm</option>
-                        <option value="Europe/Zurich">Europe/Zurich</option>
-                    </select>
-                </div>
+                        <!-- Timezone Selection -->
+                        <div class="form-group">
+                            <label for="timezone">Timezone</label>
+                            <select id="timezone" name="timezone" required>
+                                <option value="" disabled selected>Select timezone</option>
+                                <option value="US/Eastern">US/Eastern</option>
+                                <option value="US/Central">US/Central</option>
+                                <option value="US/Mountain">US/Mountain</option>
+                                <option value="US/Pacific">US/Pacific</option>
+                                <option value="Europe/London">Europe/London</option>
+                                <option value="Europe/Berlin">Europe/Berlin</option>
+                                <option value="Europe/Paris">Europe/Paris</option>
+                                <option value="Europe/Madrid">Europe/Madrid</option>
+                                <option value="Europe/Rome">Europe/Rome</option>
+                                <option value="Europe/Amsterdam">Europe/Amsterdam</option>
+                                <option value="Europe/Stockholm">Europe/Stockholm</option>
+                                <option value="Europe/Zurich">Europe/Zurich</option>
+                            </select>
+                        </div>
 
-                <!-- Start -->
-                <div class="form-group">
-                    <label>Start Date</label>
-                    <input type="date" id="start_date" name="start_date" required>
-                </div>
-                <div class="form-group">
-                    <label>Start Time (HH:MM)</label>
-                    <input type="text" id="start_time" name="start_time" placeholder="04:30" required>
-                </div>
-                <div class="form-group">
-                    <label>Start AM/PM</label>
-                    <select id="start_ampm" name="start_ampm" required>
-                        <option value="AM">AM</option>
-                        <option value="PM">PM</option>
-                    </select>
-                </div>
+                        <!-- Event Name -->
+                        <div class="form-group">
+                            <label for="name">Event Name</label>
+                            <input type="text" id="name" name="name" placeholder="Auto-filled from event type" readonly required>
+                        </div>
 
-                <!-- End -->
-                <div class="form-group">
-                    <label>End Date</label>
-                    <input type="date" id="end_date" name="end_date" required>
-                </div>
-                <div class="form-group">
-                    <label>End Time (HH:MM)</label>
-                    <input type="text" id="end_time" name="end_time" placeholder="06:30" required>
-                </div>
-                <div class="form-group">
-                    <label>End AM/PM</label>
-                    <select id="end_ampm" name="end_ampm" required>
-                        <option value="AM">AM</option>
-                        <option value="PM">PM</option>
-                    </select>
-                </div>
+                        <!-- Start Date/Time -->
+                        <div class="form-group">
+                            <label for="start_datetime">Start Date & Time</label>
+                            <input type="datetime-local" id="start_datetime" name="start_datetime" required>
+                            <div class="quick-times">
+                                <button type="button" class="quick-time-btn" onclick="setQuickTime('start', 'now')">Now</button>
+                                <button type="button" class="quick-time-btn" onclick="setQuickTime('start', '1hour')">+1 Hour</button>
+                                <button type="button" class="quick-time-btn" onclick="setQuickTime('start', 'tomorrow')">Tomorrow 9AM</button>
+                                <button type="button" class="quick-time-btn" onclick="setQuickTime('start', 'weekend')">Next Weekend</button>
+                            </div>
+                            <div class="datetime-preview" id="start-preview"></div>
+                        </div>
 
-                <!-- Description -->
-                <div class="form-group">
-                    <label for="description">Description</label>
-                    <textarea id="description" name="description" rows="5" placeholder="Enter event description" required></textarea>
-                </div>
+                        <!-- End Date/Time -->
+                        <div class="form-group">
+                            <label for="end_datetime">End Date & Time</label>
+                            <input type="datetime-local" id="end_datetime" name="end_datetime" required>
+                            <div class="duration-presets">
+                                <button type="button" class="duration-btn" onclick="setDuration(1)">+1 Hour</button>
+                                <button type="button" class="duration-btn" onclick="setDuration(2)">+2 Hours</button>
+                                <button type="button" class="duration-btn" onclick="setDuration(6)">+6 Hours</button>
+                                <button type="button" class="duration-btn" onclick="setDuration(24)">+1 Day</button>
+                                <button type="button" class="duration-btn" onclick="setDuration(72)">+3 Days</button>
+                            </div>
+                            <div class="datetime-preview" id="end-preview"></div>
+                        </div>
 
-                <button type="submit">Create Event</button>
-            </form>
+                        <!-- Description -->
+                        <div class="form-group full-width">
+                            <label for="description">Event Description</label>
+                            <textarea id="description" name="description" rows="4" placeholder="Describe what players should expect from this event..." required></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Event Preview -->
+                    <div class="event-preview" id="event-preview" style="display: none;">
+                        <h3>📅 Event Preview</h3>
+                        <div class="preview-field">
+                            <span class="preview-label">Event Name:</span>
+                            <span class="preview-value" id="preview-name">-</span>
+                        </div>
+                        <div class="preview-field">
+                            <span class="preview-label">Event Type:</span>
+                            <span class="preview-value" id="preview-type">-</span>
+                        </div>
+                        <div class="preview-field">
+                            <span class="preview-label">Start Time:</span>
+                            <span class="preview-value" id="preview-start">-</span>
+                        </div>
+                        <div class="preview-field">
+                            <span class="preview-label">End Time:</span>
+                            <span class="preview-value" id="preview-end">-</span>
+                        </div>
+                        <div class="preview-field">
+                            <span class="preview-label">Duration:</span>
+                            <span class="preview-value" id="preview-duration">-</span>
+                        </div>
+                        <div class="preview-field">
+                            <span class="preview-label">Timezone:</span>
+                            <span class="preview-value" id="preview-timezone">-</span>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="submit-btn" id="submit-btn" disabled>Schedule Event</button>
+                </form>
+            </div>
         </div>
     </div>
 
     <script>
-        // Auto-populate event name
-        const eventJsonSelect = document.getElementById("event_json");
-        const nameInput = document.getElementById("name");
+        // Auto-detect user's timezone and pre-select it
+        const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        
+        // Try to pre-select the user's timezone if it's in our list
+        const timezoneSelect = document.getElementById('timezone');
+        const supportedTimezones = Array.from(timezoneSelect.options).map(opt => opt.value);
+        
+        if (supportedTimezones.includes(userTimezone)) {
+            timezoneSelect.value = userTimezone;
+        } else {
+            // Default to US/Eastern if user's timezone isn't supported
+            timezoneSelect.value = "US/Eastern";
+        }
+        
+        // Set minimum datetime to now
+        const now = new Date();
+        const nowString = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+        document.getElementById('start_datetime').min = nowString;
+        document.getElementById('end_datetime').min = nowString;
 
-        eventJsonSelect.addEventListener("change", () => {
-            const selected = eventJsonSelect.value.replace(".json", "");
-            const spaced = selected.replace(/([a-z])([A-Z])/g, "$1 $2");
-            nameInput.value = spaced;
+        // Auto-populate event name when type is selected
+        document.getElementById('event_json').addEventListener('change', function() {
+            const selected = this.value.replace('.json', '');
+            const spaced = selected.replace(/([A-Z])/g, ' $1').trim();
+            document.getElementById('name').value = spaced;
+            updatePreview();
         });
 
-        // On submit: combine date, time, AM/PM into hidden fields
-        const form = document.getElementById("create-event-form");
-        form.addEventListener("submit", (e) => {
-            const start_date = document.getElementById("start_date").value;
-            const start_time = document.getElementById("start_time").value.trim();
-            const start_ampm = document.getElementById("start_ampm").value;
-            const end_date = document.getElementById("end_date").value;
-            const end_time = document.getElementById("end_time").value.trim();
-            const end_ampm = document.getElementById("end_ampm").value;
+        // Quick time setters
+        function setQuickTime(field, preset) {
+            const input = document.getElementById(field + '_datetime');
+            const now = new Date();
+            let targetDate;
 
-            // Add a space before AM/PM for Python strptime
-            const startStr = `${start_date} ${start_time} ${start_ampm}`;
-            const endStr = `${end_date} ${end_time} ${end_ampm}`;
+            switch(preset) {
+                case 'now':
+                    targetDate = new Date(now.getTime() + 5 * 60000); // +5 minutes
+                    break;
+                case '1hour':
+                    targetDate = new Date(now.getTime() + 60 * 60000);
+                    break;
+                case 'tomorrow':
+                    targetDate = new Date(now);
+                    targetDate.setDate(targetDate.getDate() + 1);
+                    targetDate.setHours(9, 0, 0, 0);
+                    break;
+                case 'weekend':
+                    targetDate = new Date(now);
+                    const daysUntilSaturday = (6 - targetDate.getDay()) % 7 || 7;
+                    targetDate.setDate(targetDate.getDate() + daysUntilSaturday);
+                    targetDate.setHours(10, 0, 0, 0);
+                    break;
+            }
 
-            // Set hidden inputs
-            let hiddenStart = document.createElement("input");
-            hiddenStart.type = "hidden";
-            hiddenStart.name = "start";
-            hiddenStart.value = startStr;
-            form.appendChild(hiddenStart);
+            const localString = new Date(targetDate.getTime() - targetDate.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+            input.value = localString;
+            
+            if (field === 'start') {
+                updateEndTimeMin();
+            }
+            updatePreview();
+        }
 
-            let hiddenEnd = document.createElement("input");
-            hiddenEnd.type = "hidden";
-            hiddenEnd.name = "end";
-            hiddenEnd.value = endStr;
-            form.appendChild(hiddenEnd);
+        // Duration setters
+        function setDuration(hours) {
+            const startInput = document.getElementById('start_datetime');
+            const endInput = document.getElementById('end_datetime');
+            
+            if (!startInput.value) {
+                showError('Please set a start time first');
+                return;
+            }
+
+            const startDate = new Date(startInput.value);
+            const endDate = new Date(startDate.getTime() + hours * 60 * 60000);
+            const localString = new Date(endDate.getTime() - endDate.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+            endInput.value = localString;
+            updatePreview();
+        }
+
+        // Update end time minimum when start time changes
+        function updateEndTimeMin() {
+            const startInput = document.getElementById('start_datetime');
+            const endInput = document.getElementById('end_datetime');
+            
+            if (startInput.value) {
+                endInput.min = startInput.value;
+                
+                // If end time is before start time, auto-adjust
+                if (endInput.value && endInput.value <= startInput.value) {
+                    setDuration(1); // Default to 1 hour
+                }
+            }
+        }
+
+        // Update preview
+        function updatePreview() {
+            const eventJson = document.getElementById('event_json').value;
+            const name = document.getElementById('name').value;
+            const startDatetime = document.getElementById('start_datetime').value;
+            const endDatetime = document.getElementById('end_datetime').value;
+            const description = document.getElementById('description').value;
+
+            // Show preview if we have basic info
+            if (eventJson && name && startDatetime && endDatetime && document.getElementById('timezone').value) {
+                document.getElementById('event-preview').style.display = 'block';
+                
+                // Format dates
+                const startDate = new Date(startDatetime);
+                const endDate = new Date(endDatetime);
+                const duration = Math.round((endDate - startDate) / (1000 * 60 * 60 * 10)) / 10; // Hours with 1 decimal
+                
+                document.getElementById('preview-name').textContent = name;
+                document.getElementById('preview-type').textContent = eventJson.replace('.json', '');
+                document.getElementById('preview-start').textContent = startDate.toLocaleString();
+                document.getElementById('preview-end').textContent = endDate.toLocaleString();
+                document.getElementById('preview-duration').textContent = duration + ' hours';
+                document.getElementById('preview-timezone').textContent = document.getElementById('timezone').value || 'Not selected';
+
+                // Update datetime previews
+                document.getElementById('start-preview').textContent = 'Local: ' + startDate.toLocaleString();
+                document.getElementById('end-preview').textContent = 'Local: ' + endDate.toLocaleString();
+
+                // Enable submit button
+                document.getElementById('submit-btn').disabled = false;
+            } else {
+                document.getElementById('event-preview').style.display = 'none';
+                document.getElementById('submit-btn').disabled = true;
+            }
+        }
+
+        // Show error message
+        function showError(message) {
+            const container = document.getElementById('error-container');
+            container.innerHTML = `<div class="error-message">${message}</div>`;
+            setTimeout(() => {
+                container.innerHTML = '';
+            }, 5000);
+        }
+
+        // Form validation and submission
+        document.getElementById('create-event-form').addEventListener('submit', function(e) {
+            const startDatetime = document.getElementById('start_datetime').value;
+            const endDatetime = document.getElementById('end_datetime').value;
+            
+            if (!startDatetime || !endDatetime) {
+                e.preventDefault();
+                showError('Please fill in both start and end times');
+                return;
+            }
+
+            if (new Date(endDatetime) <= new Date(startDatetime)) {
+                e.preventDefault();
+                showError('End time must be after start time');
+                return;
+            }
+
+            // Get timezone from the select dropdown
+            const timezone = document.getElementById('timezone').value;
+            
+            if (!timezone) {
+                e.preventDefault();
+                showError('Please select a timezone');
+                return;
+            }
+            
+            // Create hidden timezone input for backend
+            const timezoneInput = document.createElement('input');
+            timezoneInput.type = 'hidden';
+            timezoneInput.name = 'timezone';
+            timezoneInput.value = timezone;
+            this.appendChild(timezoneInput);
+
+            // Convert datetime-local to the exact format the backend expects
+            const startDate = new Date(startDatetime);
+            const endDate = new Date(endDatetime);
+            
+            // Backend expects: "YYYY-MM-DD HH:MM AM/PM" format
+            const startFormatted = startDate.getFullYear() + '-' + 
+                                 String(startDate.getMonth() + 1).padStart(2, '0') + '-' + 
+                                 String(startDate.getDate()).padStart(2, '0') + ' ' + 
+                                 startDate.toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit', hour12: true});
+                                 
+            const endFormatted = endDate.getFullYear() + '-' + 
+                               String(endDate.getMonth() + 1).padStart(2, '0') + '-' + 
+                               String(endDate.getDate()).padStart(2, '0') + ' ' + 
+                               endDate.toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit', hour12: true});
+
+            // Create hidden inputs with the exact names the backend expects
+            const startInput = document.createElement('input');
+            startInput.type = 'hidden';
+            startInput.name = 'start';
+            startInput.value = startFormatted;
+            this.appendChild(startInput);
+
+            const endInput = document.createElement('input');
+            endInput.type = 'hidden';
+            endInput.name = 'end';
+            endInput.value = endFormatted;
+            this.appendChild(endInput);
+
+            console.log('Sending to backend:', {
+                timezone: timezone,
+                start: startFormatted,
+                end: endFormatted
+            });
+        });
+
+        // Event listeners
+        document.getElementById('start_datetime').addEventListener('change', updateEndTimeMin);
+        document.getElementById('start_datetime').addEventListener('change', updatePreview);
+        document.getElementById('end_datetime').addEventListener('change', updatePreview);
+        document.getElementById('name').addEventListener('input', updatePreview);
+        document.getElementById('description').addEventListener('input', updatePreview);
+        document.getElementById('timezone').addEventListener('change', updatePreview);
+
+        // Initialize with current time + 1 hour
+        window.addEventListener('load', function() {
+            setQuickTime('start', '1hour');
+            setDuration(2); // Default 2 hour event
         });
     </script>
 </body>
