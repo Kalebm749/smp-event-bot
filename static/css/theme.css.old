@@ -1,0 +1,125 @@
+/* ============================================
+   SMP Event Orchestrator - Theme Variables
+   ============================================ */
+
+:root {
+  /* ==================== Colors ==================== */
+  
+  /* Background Colors */
+  --bg-primary: #0f1a2b;        /* Main body background - deep dark blue */
+  --bg-secondary: #1c2a42;      /* Panels, cards, containers */
+  --bg-tertiary: #2e3e5d;       /* Hover states, highlighted areas */
+  --bg-navbar: #1f2f4f;         /* Navigation bar */
+  
+  /* Border Colors */
+  --border-primary: #3a4a6f;    /* Main borders */
+  --border-secondary: #50628b;  /* Hover/focus borders */
+  
+  /* Text Colors */
+  --text-primary: #e0e0e0;      /* Main text */
+  --text-secondary: #cfd8dc;    /* Secondary text, links */
+  --text-muted: #888;           /* Muted/disabled text */
+  --text-hint: #aaa;            /* Hints and help text */
+  --text-white: #ffffff;        /* Pure white text */
+  
+  /* Status Colors */
+  --status-success: #4caf50;    /* Success/healthy/running states */
+  --status-success-light: #66bb6a;
+  --status-success-dark: #2c4d2c;
+  --status-success-bg: #1e2f1e;
+  
+  --status-error: #f44336;      /* Error/danger/unhealthy states */
+  --status-error-dark: #8b3a3a;
+  --status-error-bg: #4d2c2c;
+  --status-error-panel: #2f1e1e;
+  
+  --status-warning: #ff9800;    /* Warning/checking states */
+  
+  --status-info: #2196f3;       /* Info states */
+  --status-info-dark: #3a5f8b;
+  --status-info-bg: #2c3d4d;
+  
+  /* Button Colors */
+  --btn-primary: #3a4a6f;
+  --btn-primary-hover: #50628b;
+  --btn-success: #4caf50;
+  --btn-success-hover: #66bb6a;
+  --btn-danger: #f44336;
+  --btn-warning: #ff9800;
+  --btn-disabled: #666;
+  
+  /* Event Status Colors */
+  --event-past: #4d2c2c;        /* Muted red - past events */
+  --event-ongoing: #2c4d2c;     /* Muted green - ongoing events */
+  --event-future: #4d4a2c;      /* Muted yellow - future events */
+  
+  /* ==================== Spacing ==================== */
+  --spacing-xs: 5px;
+  --spacing-sm: 8px;
+  --spacing-md: 10px;
+  --spacing-lg: 15px;
+  --spacing-xl: 20px;
+  --spacing-xxl: 30px;
+  
+  /* ==================== Border Radius ==================== */
+  --radius-sm: 3px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
+  --radius-xl: 8px;
+  
+  /* ==================== Typography ==================== */
+  --font-family: Arial, sans-serif;
+  --font-family-mono: 'Courier New', monospace;
+  
+  --font-size-xs: 0.75rem;      /* 12px */
+  --font-size-sm: 0.875rem;     /* 14px */
+  --font-size-base: 1rem;       /* 16px */
+  --font-size-lg: 1.125rem;     /* 18px */
+  --font-size-xl: 1.5rem;       /* 24px */
+  
+  --font-weight-normal: 400;
+  --font-weight-bold: 700;
+  
+  /* ==================== Transitions ==================== */
+  --transition-fast: 0.2s ease;
+  --transition-normal: 0.3s ease;
+  
+  /* ==================== Shadows ==================== */
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 4px 12px rgba(76, 175, 80, 0.3);
+  
+  /* ==================== Z-Index Layers ==================== */
+  --z-dropdown: 100;
+  --z-navbar: 200;
+  --z-modal: 300;
+  --z-tooltip: 400;
+  
+  /* ==================== Container Widths ==================== */
+  --container-max-width: 1200px;
+  --form-max-width: 800px;
+  --admin-max-width: 400px;
+}
+
+/* ==================== Dark Theme (Future) ==================== */
+/* Uncomment to enable alternative dark theme */
+/*
+[data-theme="dark"] {
+  --bg-primary: #000000;
+  --bg-secondary: #111111;
+  --bg-tertiary: #222222;
+}
+*/
+
+/* ==================== Light Theme (Future) ==================== */
+/* Uncomment to enable light theme */
+/*
+[data-theme="light"] {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f5f5f5;
+  --bg-tertiary: #e0e0e0;
+  --text-primary: #333333;
+  --text-secondary: #666666;
+  --border-primary: #cccccc;
+}
+*/

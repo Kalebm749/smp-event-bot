@@ -225,7 +225,8 @@ def api_minecraft_health():
             return jsonify({
                 "healthy": False,
                 "status": "error",
-                "error": "RCON_HOST not configured in .env"
+                "error": "RCON_HOST not configured in .env",
+                "server_ip": "Not configured"
             })
         
         # Try to connect to the server port (usually 25565)
@@ -240,20 +241,23 @@ def api_minecraft_health():
             return jsonify({
                 "healthy": True,
                 "status": "online",
-                "message": f"Server at {rcon_host}:{minecraft_port} is reachable"
+                "message": f"Server at {rcon_host}:{minecraft_port} is reachable",
+                "server_ip": rcon_host
             })
         else:
             return jsonify({
                 "healthy": False,
                 "status": "offline",
-                "error": f"Cannot connect to {rcon_host}:{minecraft_port}"
+                "error": f"Cannot connect to {rcon_host}:{minecraft_port}",
+                "server_ip": rcon_host
             })
             
     except Exception as e:
         return jsonify({
             "healthy": False,
             "status": "error",
-            "error": str(e)
+            "error": str(e),
+            "server_ip": rcon_host if 'rcon_host' in locals() else "Unknown"
         })
 
 @app.route("/api/health/rcon")
@@ -278,30 +282,45 @@ def api_rcon_health():
             # Parse the JSON output from the script
             import json
             health_data = json.loads(result.stdout.strip())
+            
+            # Try to get player count from result
+            player_count = 0
+            if health_data.get("result"):
+                # Parse "There are X of a max of Y players online:" format
+                import re
+                match = re.search(r'There are (\d+)', health_data["result"])
+                if match:
+                    player_count = int(match.group(1))
+            
+            health_data["player_count"] = player_count
             return jsonify(health_data)
         else:
             # Script failed, try to parse error output
             try:
                 error_data = json.loads(result.stdout.strip())
+                error_data["player_count"] = 0
                 return jsonify(error_data)
             except:
                 return jsonify({
                     "healthy": False,
                     "status": "error",
-                    "error": f"RCON health check script failed: {result.stderr or 'Unknown error'}"
+                    "error": f"RCON health check script failed: {result.stderr or 'Unknown error'}",
+                    "player_count": 0
                 })
                 
     except subprocess.TimeoutExpired:
         return jsonify({
             "healthy": False,
             "status": "error",
-            "error": "RCON health check timed out"
+            "error": "RCON health check timed out",
+            "player_count": 0
         })
     except Exception as e:
         return jsonify({
             "healthy": False,
             "status": "error",
-            "error": f"Failed to run RCON health check: {str(e)}"
+            "error": f"Failed to run RCON health check: {str(e)}",
+            "player_count": 0
         })
     
 @app.route("/api/health/overall")
@@ -594,6 +613,120 @@ def api_admin_json_files():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route("/options")
+@login_required
+def options():
+    """Options/Settings page"""
+    return render_template("options.html")
+
+@app.route("/api/settings/get")
+@login_required
+def api_get_settings():
+    """Get current settings from .env"""
+    try:
+        settings = {
+            "rcon_host": os.getenv("RCON_HOST", ""),
+            "rcon_port": os.getenv("RCON_PORT", "25575"),
+            "discord_token": os.getenv("DISCORD_TOKEN", ""),
+            "event_channel_id": os.getenv("EVENT_CHANNEL_ID", "")
+        }
+        return jsonify(settings)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/settings/update", methods=["POST"])
+@login_required
+def api_update_settings():
+    """Update settings in .env file"""
+    try:
+        data = request.json
+        
+        # Read current .env file
+        env_path = os.path.join(os.path.dirname(__file__), '.env')
+        
+        if not os.path.exists(env_path):
+            return jsonify({"success": False, "error": ".env file not found"}), 404
+        
+        # Read existing content
+        with open(env_path, 'r') as f:
+            lines = f.readlines()
+        
+        # Update specific settings
+        updated_lines = []
+        settings_to_update = {
+            'RCON_HOST': data.get('rcon_host'),
+            'RCON_PORT': data.get('rcon_port'),
+            'DISCORD_TOKEN': data.get('discord_token'),
+            'EVENT_CHANNEL_ID': data.get('event_channel_id')
+        }
+        
+        # Track which settings were found
+        found_settings = set()
+        
+        for line in lines:
+            updated = False
+            for key, value in settings_to_update.items():
+                if value is not None and line.startswith(f"{key}="):
+                    updated_lines.append(f"{key}={value}\n")
+                    found_settings.add(key)
+                    updated = True
+                    break
+            
+            if not updated:
+                updated_lines.append(line)
+        
+        # Add any settings that weren't found
+        for key, value in settings_to_update.items():
+            if key not in found_settings and value is not None:
+                updated_lines.append(f"{key}={value}\n")
+        
+        # Write updated content
+        with open(env_path, 'w') as f:
+            f.writelines(updated_lines)
+        
+        # Reload environment variables
+        load_dotenv(override=True)
+        
+        # Log the change
+        sql_calendar.log_message("Settings updated via web interface", "ADMIN")
+        
+        return jsonify({
+            "success": True,
+            "message": "Settings updated successfully. Changes will take effect on next restart."
+        })
+        
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route("/api/settings/test-connection", methods=["POST"])
+@login_required
+def api_test_connection():
+    """Test RCON connection with provided settings"""
+    try:
+        data = request.json
+        host = data.get('rcon_host')
+        port = int(data.get('rcon_port', 25575))
+        password = os.getenv('RCON_PASS')  # Use existing password
+        
+        if not host:
+            return jsonify({"success": False, "error": "Host is required"})
+        
+        # Try to connect
+        with MCRcon(host, password, port=port, timeout=5) as mcr:
+            result = mcr.command("list")
+        
+        return jsonify({
+            "success": True,
+            "message": "Connection successful!",
+            "result": result
+        })
+        
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": f"Connection failed: {str(e)}"
+        })
+    
 @app.route("/api/database/admin-delete-json", methods=["POST"])
 @login_required
 def api_admin_delete_json():

@@ -1,6 +1,9 @@
 // Event Monitor JavaScript
 // Handles event handler status monitoring and health checks
 
+let serverIP = 'Unknown';
+let playersOnline = 0;
+
 async function refreshStatus() {
     try {
         const res = await fetch("/api/event_handler_status");
@@ -58,11 +61,13 @@ async function checkMinecraftHealth() {
             updateHealthCard('minecraft', 'healthy', 'Online', {
                 'Last Check': new Date().toLocaleTimeString()
             });
+            serverIP = data.server_ip || 'Unknown';
         } else {
             updateHealthCard('minecraft', 'unhealthy', 'Offline', {
                 'Last Check': new Date().toLocaleTimeString(),
                 'Error': data.error || 'Connection failed'
             });
+            serverIP = data.server_ip || 'Unknown';
         }
     } catch (error) {
         updateHealthCard('minecraft', 'unhealthy', 'Error', {
@@ -71,6 +76,7 @@ async function checkMinecraftHealth() {
         });
     }
     
+    updateServerInfo();
     updateOverallHealth();
 }
 
@@ -88,20 +94,24 @@ async function checkRconHealth() {
                 'Response Time': responseTime + 'ms',
                 'Last Check': new Date().toLocaleTimeString()
             });
+            playersOnline = data.player_count || 0;
         } else {
             updateHealthCard('rcon', 'unhealthy', 'Failed', {
                 'Response Time': responseTime + 'ms',
                 'Last Check': new Date().toLocaleTimeString(),
                 'Error': data.error || 'Connection failed'
             });
+            playersOnline = 0;
         }
     } catch (error) {
         updateHealthCard('rcon', 'unhealthy', 'Error', {
             'Last Check': new Date().toLocaleTimeString(),
             'Error': error.message
         });
+        playersOnline = 0;
     }
     
+    updateServerInfo();
     updateOverallHealth();
 }
 
@@ -124,25 +134,71 @@ function updateHealthCard(type, status, statusText, details) {
     });
 }
 
+function updateServerInfo() {
+    const serverInfoCard = document.getElementById('server-info-card');
+    const serverIndicator = document.getElementById('server-indicator');
+    
+    // Update server IP
+    document.getElementById('server-ip').textContent = serverIP;
+    
+    // Update players online
+    document.getElementById('players-online').textContent = playersOnline;
+    
+    // Update last update time
+    document.getElementById('server-last-update').textContent = new Date().toLocaleTimeString();
+    
+    // Update card status based on health
+    const minecraftCard = document.getElementById('minecraft-card');
+    const rconCard = document.getElementById('rcon-card');
+    
+    if (minecraftCard.classList.contains('healthy') && rconCard.classList.contains('healthy')) {
+        serverInfoCard.className = 'health-card healthy';
+        serverIndicator.className = 'health-status-indicator healthy';
+    } else if (minecraftCard.classList.contains('unhealthy') || rconCard.classList.contains('unhealthy')) {
+        serverInfoCard.className = 'health-card unhealthy';
+        serverIndicator.className = 'health-status-indicator unhealthy';
+    } else {
+        serverInfoCard.className = 'health-card checking';
+        serverIndicator.className = 'health-status-indicator checking';
+    }
+}
+
 function updateOverallHealth() {
     const minecraftCard = document.getElementById('minecraft-card');
     const rconCard = document.getElementById('rcon-card');
-    const overallHealth = document.getElementById('overall-health');
-    const overallStatus = document.getElementById('overall-status');
+    const overallCard = document.getElementById('overall-status-card');
+    const overallIndicator = document.getElementById('overall-indicator');
     
     const minecraftHealthy = minecraftCard.classList.contains('healthy');
     const rconHealthy = rconCard.classList.contains('healthy');
     
+    // Update individual status texts
+    document.getElementById('minecraft-status-text').textContent = minecraftHealthy ? '✅ Online' : '❌ Offline';
+    document.getElementById('rcon-status-text').textContent = rconHealthy ? '✅ Connected' : '❌ Failed';
+    
+    // Update overall status
     if (minecraftHealthy && rconHealthy) {
-        overallHealth.className = 'overall-health healthy';
-        overallStatus.textContent = 'All Systems Operational';
+        overallCard.className = 'health-card healthy';
+        overallIndicator.className = 'health-status-indicator healthy';
+        document.getElementById('overall-status-text').textContent = '✅ All Systems Operational';
     } else {
-        overallHealth.className = 'overall-health unhealthy';
+        overallCard.className = 'health-card unhealthy';
+        overallIndicator.className = 'health-status-indicator unhealthy';
         const issues = [];
-        if (!minecraftHealthy) issues.push('Minecraft Server');
+        if (!minecraftHealthy) issues.push('Minecraft');
         if (!rconHealthy) issues.push('RCON');
-        overallStatus.textContent = `Issues Detected: ${issues.join(', ')}`;
+        document.getElementById('overall-status-text').textContent = '❌ Issues: ' + issues.join(', ');
     }
+}
+
+async function refreshServerInfo() {
+    await checkMinecraftHealth();
+    await checkRconHealth();
+}
+
+async function refreshSystemStatus() {
+    await checkMinecraftHealth();
+    await checkRconHealth();
 }
 
 // Initialize event listeners and auto-refresh

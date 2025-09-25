@@ -30,9 +30,51 @@
             </div>
         </div>
 
-        <!-- Overall System Health -->
-        <div class="overall-health" id="overall-health">
-            <h3>System Health: <span id="overall-status">Checking...</span></h3>
+        <!-- Server Info Cards -->
+        <div class="health-checks">
+            <div class="health-card checking" id="server-info-card">
+                <div class="health-title">
+                    <div class="health-status-indicator checking" id="server-indicator"></div>
+                    Server Information
+                </div>
+                <div class="health-details">
+                    <div class="detail-row">
+                        <span class="detail-label">Server IP:</span>
+                        <span class="detail-value" id="server-ip">Loading...</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Players Online:</span>
+                        <span class="detail-value" id="players-online">-</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Last Update:</span>
+                        <span class="detail-value" id="server-last-update">-</span>
+                    </div>
+                </div>
+                <button class="refresh-health" onclick="refreshServerInfo()">Refresh</button>
+            </div>
+
+            <div class="health-card checking" id="overall-status-card">
+                <div class="health-title">
+                    <div class="health-status-indicator checking" id="overall-indicator"></div>
+                    System Status
+                </div>
+                <div class="health-details">
+                    <div class="detail-row">
+                        <span class="detail-label">Minecraft:</span>
+                        <span class="detail-value" id="minecraft-status-text">Checking...</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">RCON:</span>
+                        <span class="detail-value" id="rcon-status-text">Checking...</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Overall:</span>
+                        <span class="detail-value" id="overall-status-text">Checking...</span>
+                    </div>
+                </div>
+                <button class="refresh-health" onclick="refreshSystemStatus()">Refresh</button>
+            </div>
         </div>
 
         <!-- Health Checks -->

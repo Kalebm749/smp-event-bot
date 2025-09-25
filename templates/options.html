@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Settings - SMP Event Orchestrator</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+</head>
+<body>
+    {% include 'navbar.html' %}
+
+    <div class="container">
+        <h1>Settings</h1>
+
+        <!-- RCON Settings Panel -->
+        <div class="panel">
+            <h2>RCON Connection Settings</h2>
+            <p style="color: #888; margin-bottom: 20px;">Configure the connection to your Minecraft server via RCON</p>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="rcon-host">Minecraft Server IP/Host</label>
+                    <input type="text" id="rcon-host" placeholder="localhost or IP address">
+                </div>
+
+                <div class="form-group">
+                    <label for="rcon-port">RCON Port</label>
+                    <input type="number" id="rcon-port" placeholder="25575">
+                </div>
+            </div>
+
+            <div style="margin-top: 20px; display: flex; gap: 10px;">
+                <button class="btn" onclick="testConnection()" id="test-btn">Test Connection</button>
+                <button class="btn" onclick="saveSettings()" id="save-btn">Save Settings</button>
+            </div>
+
+            <div id="connection-status" style="margin-top: 15px;"></div>
+        </div>
+
+        <!-- Discord Settings Panel -->
+        <div class="panel">
+            <h2>Discord Integration Settings</h2>
+            <p style="color: #888; margin-bottom: 20px;">Configure Discord bot for event notifications</p>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="discord-token">Discord Bot Token</label>
+                    <input type="text" id="discord-token" placeholder="Your Discord bot token">
+                </div>
+
+                <div class="form-group">
+                    <label for="event-channel-id">Event Channel ID</label>
+                    <input type="text" id="event-channel-id" placeholder="Discord channel ID for events">
+                </div>
+            </div>
+
+            <div style="margin-top: 20px;">
+                <button class="btn" onclick="saveSettings()">Save Discord Settings</button>
+            </div>
+
+            <div id="discord-status" style="margin-top: 15px;"></div>
+        </div>
+
+        <!-- Restart Notice -->
+        <div class="alert alert-info" style="margin-top: 20px;">
+            <strong>Note:</strong> Some changes may require restarting the application or event handler to take effect.
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/options.js') }}"></script>
+</body>
+</html>
