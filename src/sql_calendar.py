@@ -115,7 +115,7 @@ def events_needing_scoreboard_display():
 # === UPDATE FUNCTIONS ===
 
 def start_event_by_id(event_id):
-    """Mark event as started"""
+    """Mark event as started and in progress"""
     db = db_manager(DATABASE_PATH, SCHEMA_PATH)
 
     start_event_query = """
@@ -125,7 +125,21 @@ def start_event_by_id(event_id):
     WHERE id = ?;
     """
 
-    return db.db_query_with_params(start_event_query, (event_id,))
+    try:
+        db_conn = db.db_connect()
+        cursor = db_conn.cursor()
+        cursor.execute(start_event_query, (event_id,))
+        db_conn.commit()
+        affected_rows = cursor.rowcount
+        cursor.close()
+        db_conn.close()
+        
+        log_message(f"Event {event_id} marked as started (affected {affected_rows} rows)")
+        return affected_rows > 0
+        
+    except Exception as e:
+        log_message(f"Error starting event {event_id}: {e}", "ERROR")
+        return False
 
 def end_event_by_id(event_id):
     """Mark event as ended"""
@@ -138,7 +152,21 @@ def end_event_by_id(event_id):
     WHERE id = ?;
     """
 
-    return db.db_query_with_params(end_event_query, (event_id,))
+    try:
+        db_conn = db.db_connect()
+        cursor = db_conn.cursor()
+        cursor.execute(end_event_query, (event_id,))
+        db_conn.commit()
+        affected_rows = cursor.rowcount
+        cursor.close()
+        db_conn.close()
+        
+        log_message(f"Event {event_id} marked as ended (affected {affected_rows} rows)")
+        return affected_rows > 0
+        
+    except Exception as e:
+        log_message(f"Error ending event {event_id}: {e}", "ERROR")
+        return False
 
 def update_scoreboard_display_time(event_id):
     """Update the last scoreboard display time"""
@@ -152,7 +180,20 @@ def update_scoreboard_display_time(event_id):
     WHERE id = ?;
     """
     
-    return db.db_query_with_params(update_query, (current_time, event_id))
+    try:
+        db_conn = db.db_connect()
+        cursor = db_conn.cursor()
+        cursor.execute(update_query, (current_time, event_id))
+        db_conn.commit()
+        affected_rows = cursor.rowcount
+        cursor.close()
+        db_conn.close()
+        
+        return affected_rows > 0
+        
+    except Exception as e:
+        log_message(f"Error updating scoreboard time for event {event_id}: {e}", "ERROR")
+        return False
 
 # === NOTIFICATION FUNCTIONS ===
 
@@ -261,8 +302,20 @@ def update_scoreboard_time(event_id, timestamp):
     WHERE id = ?;
     """
     
-    result = db.db_query_with_params(query, (timestamp, event_id))
-    return result
+    try:
+        db_conn = db.db_connect()
+        cursor = db_conn.cursor()
+        cursor.execute(query, (timestamp, event_id))
+        db_conn.commit()
+        affected_rows = cursor.rowcount
+        cursor.close()
+        db_conn.close()
+        
+        return affected_rows > 0
+        
+    except Exception as e:
+        log_message(f"Error updating scoreboard time: {e}", "ERROR")
+        return False
 
 def get_event_id_by_unique_name(unique_name):
     """Get event ID by unique event name"""
