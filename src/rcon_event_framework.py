@@ -27,11 +27,9 @@ def escape_mc_string(text):
 def log_to_sql(message, level="INFO"):
     """Log to SQLite database with proper UTC timestamp format"""
     try:
-        # Format timestamp to match schema requirements (YYYY-MM-DDTHH:MM:SSZ)
         timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
         sql_calendar.log_message_with_timestamp(message, level, timestamp)
     except Exception as e:
-        # Fallback to print if SQL logging fails
         print(f"SQL logging failed: {e} - Message: {message}")
 
 def mcrcon_wrapper(cmds):
@@ -201,7 +199,18 @@ def find_leaders(event_data, silent=False):
         else:
             log_to_sql(f"Could not parse score for {player} from: {score_result[0]}", "WARN")
 
-    # Format leader announcement
+    # FIXED: Check if top score is 0 (nobody participated)
+    if leading_score == 0:
+        log_to_sql("Top score is 0 - no participation in event")
+        if not silent:
+            message = f"No one participated in the {event_data['name']} event."
+            announcement = {"text": message, "color": "red"}
+            announce_cmd = f"tellraw @a {json.dumps(announcement)}"
+            announce_result = mcrcon_wrapper(announce_cmd)
+            log_to_sql(f"No participation announcement sent: {announce_result}")
+        return [], 0
+
+    # Format leader announcement for actual scores
     if leaders:
         leader_names = ", ".join(leaders)
         log_to_sql(f"Current leaders: {leader_names} with score {leading_score}")
@@ -288,7 +297,6 @@ def cleanup_objs(event_data):
 def update_scoreboard_display_time(unique_event_name):
     """Update the last scoreboard display time with proper UTC format"""
     try:
-        # Get event ID from unique name
         event_id = sql_calendar.get_event_id_by_unique_name(unique_event_name)
         if not event_id:
             log_to_sql(f"Could not find event ID for: {unique_event_name}", "ERROR")
@@ -305,7 +313,6 @@ def update_scoreboard_display_time(unique_event_name):
 def save_winners_to_sql(event_data, leaders, final_score):
     """Save event winners directly to SQLite database"""
     try:
-        # Get event ID by unique name
         unique_name = event_data.get('unique_event_name')
         if not unique_name:
             log_to_sql("No unique_event_name found in event data", "ERROR")
@@ -314,6 +321,12 @@ def save_winners_to_sql(event_data, leaders, final_score):
         event_id = sql_calendar.get_event_id_by_unique_name(unique_name)
         if not event_id:
             log_to_sql(f"Could not find event ID for: {unique_name}", "ERROR")
+            return
+
+        # FIXED: Don't save winners if nobody participated (empty leaders list)
+        if not leaders or final_score == 0:
+            log_to_sql("No winners to save (nobody participated)")
+            print("✅ Event ended with no winners (no participation)")
             return
 
         # Get online players to determine who was online
@@ -429,8 +442,16 @@ def closing_ceremony(event_data):
         mcrcon_wrapper([firework_particles, firework_sounds])
         time.sleep(0.3)
 
-    # Winner announcement
-    if leaders:
+    # FIXED: Handle different winner scenarios
+    if not leaders or final_score == 0:
+        # Nobody participated
+        no_winner_text = "Unfortunately, nobody participated in this event!"
+        no_winner_json = {"text": no_winner_text, "color": "red"}
+        no_winner_cmd = f"tellraw @a {json.dumps(no_winner_json)}"
+        mcrcon_wrapper(no_winner_cmd)
+        log_to_sql("No participation announcement sent")
+    else:
+        # We have winners with actual scores
         winner_text = f"{', '.join(leaders)} won the event with {final_score} {event_data.get('score_text', 'points')}"
         winner_json = {"text": winner_text, "color": "green"}
         winner_cmd = f"tellraw @a {json.dumps(winner_json)}"
@@ -450,8 +471,9 @@ def closing_ceremony(event_data):
     mcrcon_wrapper(stop_cmd)
     log_to_sql("Stopped ceremony music")
 
-    # Distribute rewards
-    give_reward_item(leaders, event_data)
+    # FIXED: Only distribute rewards if there are actual winners
+    if leaders and final_score > 0:
+        give_reward_item(leaders, event_data)
 
     # Save results to database
     save_winners_to_sql(event_data, leaders, final_score)
@@ -490,7 +512,7 @@ def run_event(action, json_file, unique_name=None):
         elif action == "display":
             aggregate_scores(event_data)
             find_leaders(event_data)
-            display_scoreboard(event_data, unique_event_name=unique_name)  # Pass unique_name here
+            display_scoreboard(event_data, unique_event_name=unique_name)
         elif action == "clean":
             aggregate_scores(event_data)
             closing_ceremony(event_data)
