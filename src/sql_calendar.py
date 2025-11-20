@@ -107,7 +107,7 @@ def events_needing_scoreboard_display():
     FROM events
     WHERE event_in_progress = 1
     AND (last_scoreboard_time IS NULL 
-         OR last_scoreboard_time <= strftime('%Y-%m-%dT%H:%M:%SZ', datetime('now', '-1 minutes')));
+         OR last_scoreboard_time <= strftime('%Y-%m-%dT%H:%M:%SZ', datetime('now', '-10 minutes')));
     """
 
     return db.db_query(events_need_display_query)
