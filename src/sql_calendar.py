@@ -107,7 +107,7 @@ def events_needing_scoreboard_display():
     FROM events
     WHERE event_in_progress = 1
     AND (last_scoreboard_time IS NULL 
-         OR last_scoreboard_time <= strftime('%Y-%m-%dT%H:%M:%SZ', datetime('now', '-10 minutes')));
+         OR last_scoreboard_time <= strftime('%Y-%m-%dT%H:%M:%SZ', datetime('now', '-15 minutes')));
     """
 
     return db.db_query(events_need_display_query)
@@ -261,7 +261,8 @@ def update_scoreboard_time(event_id, timestamp):
     WHERE id = ?;
     """
     
-    return db.db_query_with_params(query, (timestamp, event_id))
+    result = db.db_query_with_params(query, (timestamp, event_id))
+    return result
 
 def get_event_id_by_unique_name(unique_name):
     """Get event ID by unique event name"""

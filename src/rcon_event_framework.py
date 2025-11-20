@@ -8,7 +8,9 @@ from datetime import datetime, timezone
 from dotenv import load_dotenv
 import re
 import sql_calendar
-
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from threading import Lock
+_connection_lock = Lock()
 # LOAD CONFIG
 load_dotenv()
 rcon_host = os.getenv("RCON_HOST")
@@ -35,18 +37,20 @@ def log_to_sql(message, level="INFO"):
         print(f"SQL logging failed: {e} - Message: {message}")
 
 def mcrcon_wrapper(cmds):
-    """Execute RCON commands with error handling and logging"""
+    """Execute RCON commands with error handling and logging (thread-safe)"""
     if isinstance(cmds, str):
         cmds = [cmds]
 
     cmd_results = []
 
     try:
-        with MCRcon(rcon_host, rcon_pass, port=rcon_port) as mcr:
-            for cmd in cmds:
-                result = mcr.command(cmd)
-                cmd_results.append(result)
-                log_to_sql(f"RCON command executed: {cmd}")
+        # Use lock to ensure thread-safe RCON operations
+        with _connection_lock:
+            with MCRcon(rcon_host, rcon_pass, port=rcon_port, timeout=10) as mcr:
+                for cmd in cmds:
+                    result = mcr.command(cmd)
+                    cmd_results.append(result)
+                    log_to_sql(f"RCON command executed: {cmd}")
         return cmd_results
     except Exception as e:
         error_msg = f"MCRCON error: {e}"
@@ -124,7 +128,7 @@ def start_event(event_data):
     print("✅ Event Setup Completed")
 
 def aggregate_scores(event_data):
-    """Aggregate player scores for events that require it"""
+    """Aggregate player scores for events that require it (parallelized)"""
     player_list = get_players()
     
     if not player_list:
@@ -132,7 +136,7 @@ def aggregate_scores(event_data):
         print("No tracked players. Nothing to aggregate.")
         return
 
-    log_to_sql(f"Aggregating scores for players: {player_list}")
+    log_to_sql(f"Aggregating scores for {len(player_list)} players")
 
     try:
         agg_obj = event_data["aggregate_objective"]
@@ -146,23 +150,50 @@ def aggregate_scores(event_data):
         log_to_sql("Event does not require score aggregation")
         return
 
-    for player in player_list:
-        # Reset aggregate score to zero
-        reset_cmd = f"scoreboard players set {player} {agg_obj} 0"
-        reset_result = mcrcon_wrapper(reset_cmd)
-        log_to_sql(f"Reset {agg_obj} to 0 for {player}: {reset_result}")
+    def aggregate_player(player):
+        """Aggregate scores for a single player"""
+        try:
+            # Reset aggregate score to zero
+            reset_cmd = f"scoreboard players set {player} {agg_obj} 0"
+            reset_result = mcrcon_wrapper(reset_cmd)
+            log_to_sql(f"Reset {agg_obj} to 0 for {player}: {reset_result}")
 
-        # Aggregate each objective
-        for objective in objectives:
-            agg_cmd = f"scoreboard players operation {player} {agg_obj} += {player} {objective}"
-            agg_result = mcrcon_wrapper(agg_cmd)
-            log_to_sql(f"Aggregated {objective} into {agg_obj} for {player}: {agg_result}")
+            # Aggregate each objective
+            for objective in objectives:
+                agg_cmd = f"scoreboard players operation {player} {agg_obj} += {player} {objective}"
+                agg_result = mcrcon_wrapper(agg_cmd)
+                log_to_sql(f"Aggregated {objective} into {agg_obj} for {player}: {agg_result}")
+            
+            return player, True
+        except Exception as e:
+            log_to_sql(f"Error aggregating scores for {player}: {e}", "ERROR")
+            return player, False
 
-    log_to_sql("Score aggregation completed")
-    print("✅ Calculated Aggregate Scores")
+    # Process players in parallel with a thread pool
+    max_workers = min(10, len(player_list))  # Limit to 10 concurrent connections
+    successful = 0
+    failed = 0
+    
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(aggregate_player, player): player for player in player_list}
+        
+        for future in as_completed(futures):
+            player = futures[future]
+            try:
+                player_name, success = future.result()
+                if success:
+                    successful += 1
+                else:
+                    failed += 1
+            except Exception as e:
+                log_to_sql(f"Exception processing {player}: {e}", "ERROR")
+                failed += 1
+
+    log_to_sql(f"Score aggregation completed: {successful} successful, {failed} failed")
+    print(f"✅ Calculated Aggregate Scores ({successful}/{len(player_list)} players)")
 
 def find_leaders(event_data, silent=False):
-    """Find the leading players and optionally announce them"""
+    """Find the leading players and optionally announce them (parallelized)"""
     player_list = get_players()
     
     if not player_list:
@@ -175,31 +206,52 @@ def find_leaders(event_data, silent=False):
         log_to_sql("Missing aggregate_objective in event data", "ERROR")
         return [], 0
 
-    leaders = []
-    leading_score = 0
+    log_to_sql(f"Checking scores for {len(player_list)} players for objective: {main_obj}")
 
-    log_to_sql(f"Checking scores for objective: {main_obj}")
+    def get_player_score(player):
+        """Get score for a single player"""
+        try:
+            score_cmd = f"scoreboard players get {player} {main_obj}"
+            score_result = mcrcon_wrapper(score_cmd)
+            log_to_sql(f"Score check for {player}: {score_result}")
 
-    for player in player_list:
-        score_cmd = f"scoreboard players get {player} {main_obj}"
-        score_result = mcrcon_wrapper(score_cmd)
-        log_to_sql(f"Score check for {player}: {score_result}")
+            if not score_result:
+                return player, None
 
-        if not score_result:
-            continue
+            # Parse score from result
+            match = re.search(r"has (\d+)", score_result[0])
+            if match:
+                score = int(match.group(1))
+                return player, score
+            else:
+                log_to_sql(f"Could not parse score for {player} from: {score_result[0]}", "WARN")
+                return player, None
+        except Exception as e:
+            log_to_sql(f"Error getting score for {player}: {e}", "ERROR")
+            return player, None
 
-        # Parse score from result
-        match = re.search(r"has (\d+)", score_result[0])
-        if match:
-            score = int(match.group(1))
-            
-            if not leaders or score > leading_score:
-                leaders = [player]
-                leading_score = score
-            elif score == leading_score:
-                leaders.append(player)
-        else:
-            log_to_sql(f"Could not parse score for {player} from: {score_result[0]}", "WARN")
+    # Get all player scores in parallel
+    player_scores = {}
+    max_workers = min(10, len(player_list))  # Limit concurrent connections
+    
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(get_player_score, player): player for player in player_list}
+        
+        for future in as_completed(futures):
+            try:
+                player, score = future.result()
+                if score is not None:
+                    player_scores[player] = score
+            except Exception as e:
+                log_to_sql(f"Exception getting score: {e}", "ERROR")
+
+    # Find the leading score and players
+    if not player_scores:
+        log_to_sql("No valid scores found")
+        return [], 0
+
+    leading_score = max(player_scores.values())
+    leaders = [player for player, score in player_scores.items() if score == leading_score]
 
     # Format leader announcement
     if leaders:
@@ -219,10 +271,10 @@ def find_leaders(event_data, silent=False):
     else:
         log_to_sql("No leaders found")
 
-    print("✅ Leaders determined!")
+    print(f"✅ Leaders determined! ({len(player_scores)} players processed)")
     return leaders, leading_score
 
-def display_scoreboard(event_data):
+def display_scoreboard(event_data, unique_event_name=None):
     """Display the event scoreboard for a specified duration"""
     try:
         tracked_obj = event_data["aggregate_objective"]
@@ -260,6 +312,10 @@ def display_scoreboard(event_data):
     clear_result = mcrcon_wrapper(clear_cmd)
     log_to_sql(f"Scoreboard cleared: {clear_result}")
 
+    # Update the scoreboard display time in database
+    if unique_event_name:
+        update_scoreboard_display_time(unique_event_name)
+
     log_to_sql("Scoreboard display completed")
     print("✅ Scoreboard was displayed")
 
@@ -281,14 +337,22 @@ def cleanup_objs(event_data):
     log_to_sql("Event cleanup completed")
     print("✅ Event has been cleaned up!")
 
-def update_scoreboard_display_time(event_id):
+def update_scoreboard_display_time(unique_event_name):
     """Update the last scoreboard display time with proper UTC format"""
     try:
+        # Get event ID from unique name
+        event_id = sql_calendar.get_event_id_by_unique_name(unique_event_name)
+        if not event_id:
+            log_to_sql(f"Could not find event ID for: {unique_event_name}", "ERROR")
+            return False
+            
         timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
         sql_calendar.update_scoreboard_time(event_id, timestamp)
-        log_to_sql(f"Updated scoreboard display time for event {event_id}")
+        log_to_sql(f"Updated scoreboard display time for event {event_id} ({unique_event_name}) to {timestamp}")
+        return True
     except Exception as e:
         log_to_sql(f"Error updating scoreboard time: {e}", "ERROR")
+        return False
 
 def save_winners_to_sql(event_data, leaders, final_score):
     """Save event winners directly to SQLite database"""
@@ -478,10 +542,7 @@ def run_event(action, json_file, unique_name=None):
         elif action == "display":
             aggregate_scores(event_data)
             find_leaders(event_data)
-            display_scoreboard(event_data)
-            # Update scoreboard display time
-            if event_id:
-                update_scoreboard_display_time(event_id)
+            display_scoreboard(event_data, unique_event_name=unique_name)  # Pass unique_name here
         elif action == "clean":
             aggregate_scores(event_data)
             closing_ceremony(event_data)
