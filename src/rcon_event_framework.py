@@ -222,7 +222,7 @@ def find_leaders(event_data, silent=False):
     print("✅ Leaders determined!")
     return leaders, leading_score
 
-def display_scoreboard(event_data):
+def display_scoreboard(event_data, unique_event_name=None):
     """Display the event scoreboard for a specified duration"""
     try:
         tracked_obj = event_data["aggregate_objective"]
@@ -260,6 +260,10 @@ def display_scoreboard(event_data):
     clear_result = mcrcon_wrapper(clear_cmd)
     log_to_sql(f"Scoreboard cleared: {clear_result}")
 
+    # Update the scoreboard display time in database
+    if unique_event_name:
+        update_scoreboard_display_time(unique_event_name)
+
     log_to_sql("Scoreboard display completed")
     print("✅ Scoreboard was displayed")
 
@@ -281,14 +285,22 @@ def cleanup_objs(event_data):
     log_to_sql("Event cleanup completed")
     print("✅ Event has been cleaned up!")
 
-def update_scoreboard_display_time(event_id):
+def update_scoreboard_display_time(unique_event_name):
     """Update the last scoreboard display time with proper UTC format"""
     try:
+        # Get event ID from unique name
+        event_id = sql_calendar.get_event_id_by_unique_name(unique_event_name)
+        if not event_id:
+            log_to_sql(f"Could not find event ID for: {unique_event_name}", "ERROR")
+            return False
+            
         timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
         sql_calendar.update_scoreboard_time(event_id, timestamp)
-        log_to_sql(f"Updated scoreboard display time for event {event_id}")
+        log_to_sql(f"Updated scoreboard display time for event {event_id} ({unique_event_name}) to {timestamp}")
+        return True
     except Exception as e:
         log_to_sql(f"Error updating scoreboard time: {e}", "ERROR")
+        return False
 
 def save_winners_to_sql(event_data, leaders, final_score):
     """Save event winners directly to SQLite database"""
@@ -478,10 +490,7 @@ def run_event(action, json_file, unique_name=None):
         elif action == "display":
             aggregate_scores(event_data)
             find_leaders(event_data)
-            display_scoreboard(event_data)
-            # Update scoreboard display time
-            if event_id:
-                update_scoreboard_display_time(event_id)
+            display_scoreboard(event_data, unique_event_name=unique_name)  # Pass unique_name here
         elif action == "clean":
             aggregate_scores(event_data)
             closing_ceremony(event_data)
