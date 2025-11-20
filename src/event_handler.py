@@ -131,13 +131,13 @@ def main():
 
             # === PRIORITY 4: Display Scoreboards ===
             scoreboard_events = sql_calendar.events_needing_scoreboard_display()
-
+            
             for event in scoreboard_events:
                 event_id, unique_name, name, event_json = event[0], event[1], event[2], event[3]
                 print(f"DEBUG| Displaying scoreboard for {name}")
                 sql_calendar.log_message(f"Displaying scoreboard for: {name}")
                 
-                call_rcon_framework("display", event_json, unique_name)  # Pass unique_name as third argument
+                call_rcon_framework("display", event_json)
                 # Update scoreboard time will be handled in the RCON framework now
 
             # === PRIORITY 5: Send 30 Minute Notifications ===
